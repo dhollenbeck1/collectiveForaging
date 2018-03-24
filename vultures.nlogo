@@ -1,4 +1,4 @@
-globals [ max-sheep tar-xcor tar-ycor ]
+globals [ max-sheep tar-xcor tar-ycor tar-died]
 breed [ sheep a-sheep ]
 breed [ vultures a-vulture ]
 breed [ plume a-puff ]
@@ -12,6 +12,7 @@ vultures-own [ maybe-bite         ;; holds list of sheep the vulture can see
                xcom               ;; x component
                ycom               ;; y component
                current-heading
+               cohesing
              ]
 plume-own [ time conc ]
 patches-own [ countdown ]
@@ -23,7 +24,7 @@ to setup
   clear-all
   ifelse netlogo-web? [set max-sheep 10000] [set max-sheep 30000]
   ask patches [ set pcolor green ]
-
+  set tar-died False
   create-sheep 1 ; create the sheep, then initialize their variables
   [
     set shape "sheep"
@@ -42,12 +43,13 @@ to setup
     set color black
     set size 2  ; easier to see
     set energy vulture-energy;random (2 * vulture-gain-from-food)
-    setxy random-xcor random-ycor
+    setxy (random sep-dist) (random sep-dist)
     set descending False
     set feasting False
     set nearest-neighbor no-turtles
     set xcom 0
     set ycom 0
+    set cohesing True
   ]
 
   display-labels
@@ -67,17 +69,27 @@ to go
     ifelse descending
         [set color red]
         [set color black]
-    ifelse chase?
+    ifelse (chase?)
     [
-      forage
+      ifelse (feasting = False)
+      [
+        forage
+        set energy energy - movement-cost
+        eat-sheep
+      ]
+      [
+        find-sheep
+        let step 1
+        face min-one-of maybe-bite [distance myself]
+        fd step
+        eat-sheep
+      ]
     ]
     [
       wiggle
+      set energy energy - movement-cost
+      eat-sheep
     ]
-    set energy energy - movement-cost  ; vultures lose energy as they wiggle
-    eat-sheep ; vultures eat a sheep on their patch
-    death ; vultures die if out of energy
-    ; reproduce-vultures ; vultures reproduce at random rate governed by slider
   ]
 
   stink
@@ -121,7 +133,7 @@ end
 
 to wiggle  ; turtle procedure
   let my-neighbor vultures in-radius v2v-vision
-  ifelse my-neighbor != nobody
+  ifelse any? my-neighbor
   [
     set heading mean-heading [heading] of vultures in-radius v2v-vision + random-float movement-var - random-float movement-var
     fd movement-rate
@@ -146,26 +158,37 @@ to cohese
   let yp [ycor] of self
 
   ;lennard-jones F = D/r^2-D^1.7/r^2.7     --spears, physicomimetics
-  let my-neighbor min-one-of vultures in-radius v2v-vision [distance myself]
-  ;foreach [self] of other vultures in-radius v2v-vision
-  ask my-neighbor
-  [
+  let mylist vultures in-radius (v2v-vision * 2)
+  ask mylist
+    [
     set current-heading [heading] of self
     facexy xp yp
-    let cur-rad ((xcor - xp) ^ 2 + (ycor - yp) ^ 2) ^ (0.5)
+    let cur-rad (distancexy xp yp)
     let F 0
-
-    ifelse (cur-rad <=  sep-dist)
-    [
-       set F (-1) * well-depth * ((2 * sep-dist / (cur-rad + sep-dist)) ^ well-alpha - (2 * sep-dist / (cur-rad + sep-dist))^ well-beta)
-    ]
-    [
-       set F well-depth * ((2 * sep-dist / (cur-rad + sep-dist)) ^ well-alpha - (2 * sep-dist / (cur-rad + sep-dist))^ well-beta)
+    let sigma sep-dist / (2 ^ (1 / 6))
+    if (cur-rad > 0) [
+       set F (24 * well-depth * (d * sigma ^ well-alpha / cur-rad ^ (well-alpha + 1) - c * sigma ^ well-beta / cur-rad ^ (well-beta + 1)))
     ]
 
-    fd ( F / well-depth ) * movement-rate
+    if (cur-rad <=  sep-dist)
+    [
+       ifelse (F > 0) [
+        let step ( F / well-depth ) * movement-rate
+        if ( step > 1 * movement-rate)
+        [
+          set F (-1) * movement-rate
+        ]
+      ]
+      [
+       set F ((-1) * F)
+      ]
+    ]
+
+    fd F
     set heading current-heading
-  ]
+      ]
+
+
     ; heading round min-one-of vultures [distance myself + random movement-var - random movement-var]
 end
 
@@ -177,23 +200,44 @@ end
 ;end
 
 to eat-sheep  ; vulture procedure
-  let prey one-of sheep-here                    ; grab a random sheep
-  if prey != nobody  [                          ; did we get one?  if so,
-    ask prey [
-        set energy energy - vulture-gain-from-food
-      if energy < 0 [
-        hatch 1 [
+  let prey sheep in-radius 5                    ; grab a random sheep
+  if any? prey
+  [                          ; did we get one?  if so,
+    set feasting True
+    ask prey
+    [
+      set energy energy - vulture-gain-from-food
+      if energy < 0
+      [
+        set tar-died True
+        hatch 1
+        [
           set energy sheep-energy
           set tar-xcor random-xcor
           set tar-ycor random-ycor
           setxy tar-xcor tar-ycor
         ]
-        die]
+        die
+      ]
     ]
-    set energy energy + vulture-gain-from-food     ; get energy from eating
-  ]
+    ifelse (tar-died = false)
+    [
+        set energy energy + vulture-gain-from-food
+    ]    ; get energy from eating
+    [
+        set energy energy + vulture-gain-from-food
+        set tar-died False
+        reset-vulture-feasting
+    ]
+ ]
 end
 
+to reset-vulture-feasting
+  ask vultures
+  [
+    set feasting False
+  ]
+end
 
 ; need to break down eat-sheep so that
 ; 1) vultures stop at sheep
@@ -211,31 +255,23 @@ end
 to forage
   find-sheep
   ifelse any? maybe-bite
-      [chase-sheep]
-      [socialize]
-end
-
-;; makes a vulture target the closest sheep
-to chase-sheep
-  find-sheep
-  if any? maybe-bite
-    [ find-nearest-sheep
+      [find-nearest-sheep
       face nearest-sheep
       set descending True
+      set cohesing False
       move]
-end
-
-to socialize
-  find-wake
-  ifelse any? nearest-neighbor
+      [find-wake
+      ifelse any? nearest-neighbor
       [ find-nearest-neighbor
         face nearest-neighbor
         set descending True
+        set cohesing False
         move]
       [set descending False
+       set cohesing True
        wiggle
        cohese
-       ]
+       ]]
 end
 
 to find-sheep ;; vulture procedure
@@ -317,7 +353,7 @@ SLIDER
 sheep-energy
 sheep-energy
 0.0
-50.0
+200
 50.0
 1.0
 1
@@ -333,7 +369,7 @@ initial-number-vultures
 initial-number-vultures
 0
 50
-4.0
+29.0
 1
 1
 NIL
@@ -449,7 +485,7 @@ vision
 vision
 0
 100
-21.5
+25.0
 0.5
 1
 patches
@@ -475,7 +511,7 @@ movement-rate
 movement-rate
 0
 3
-1.24
+3.0
 0.01
 1
 patches
@@ -533,7 +569,7 @@ v2v-vision
 v2v-vision
 0
 100
-18.0
+30.0
 1
 1
 NIL
@@ -548,7 +584,7 @@ movement-cost
 movement-cost
 0
 1
-0.01
+0.05
 0.01
 1
 NIL
@@ -563,7 +599,7 @@ sep-dist
 sep-dist
 0
 100
-19.0
+5.0
 1
 1
 NIL
@@ -578,7 +614,7 @@ movement-angle
 movement-angle
 0
 360
-30.0
+360.0
 1
 1
 NIL
@@ -593,66 +629,21 @@ movement-var
 movement-var
 0
 90
-50.0
+34.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-885
-220
-1057
-253
-mass
-mass
-1
-100
-11.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-885
+890
 260
-1057
+1062
 293
 well-depth
 well-depth
 0
 10
-5.0
-0.1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-1260
-220
-1432
-253
-well-alpha
-well-alpha
-0
-12
-2.0
-0.1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-1260
-260
-1432
-293
-well-beta
-well-beta
-0
-6
 1.0
 0.1
 1
@@ -660,40 +651,70 @@ NIL
 HORIZONTAL
 
 SLIDER
-15
-435
-187
-468
+1250
+300
+1422
+333
+well-alpha
+well-alpha
+0
+12
+12.0
+0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1250
+260
+1422
+293
+well-beta
+well-beta
+0
+6
+6.0
+0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+200
+425
+372
+458
 puff-num
 puff-num
 0
 200
-161.0
+89.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-15
-475
-187
-508
+20
+465
+192
+498
 puff-time
 puff-time
 0
 100
-46.0
+39.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-15
-515
-187
-548
+200
+465
+372
+498
 puff-conc
 puff-conc
 1
@@ -713,7 +734,7 @@ wind-speed
 wind-speed
 0
 10
-0.9
+2.4
 0.1
 1
 NIL
@@ -728,7 +749,7 @@ wind-dir
 wind-dir
 0
 359
-0.0
+101.0
 1
 1
 NIL
@@ -742,8 +763,8 @@ SLIDER
 wind-var
 wind-var
 0
-180
-180.0
+360
+41.0
 1
 1
 NIL
@@ -758,7 +779,7 @@ wind-turb
 wind-turb
 0
 90
-2.0
+42.0
 1
 1
 NIL
@@ -795,14 +816,44 @@ Move - Settings
 1
 
 TEXTBOX
-35
-410
-185
-428
+40
+435
+190
+453
 Puff - Settings
 14
 0.0
 1
+
+SLIDER
+890
+300
+1062
+333
+d
+d
+0
+20
+2.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1070
+300
+1242
+333
+c
+c
+0
+20
+2.0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
