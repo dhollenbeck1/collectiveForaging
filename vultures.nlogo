@@ -1,6 +1,7 @@
-globals [ max-sheep ]
+globals [ max-sheep tar-xcor tar-ycor ]
 breed [ sheep a-sheep ]
 breed [ vultures a-vulture ]
+breed [ plume a-puff ]
 turtles-own [ energy ]            ;; both vultures and sheep have energy
 vultures-own [ maybe-bite         ;; holds list of sheep the vulture can see
                nearest-sheep      ;; holds the sheep targeted by a given vulture
@@ -12,6 +13,7 @@ vultures-own [ maybe-bite         ;; holds list of sheep the vulture can see
                ycom               ;; y component
                current-heading
              ]
+plume-own [ time conc ]
 patches-own [ countdown ]
 
 ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -22,7 +24,7 @@ to setup
   ifelse netlogo-web? [set max-sheep 10000] [set max-sheep 30000]
   ask patches [ set pcolor green ]
 
-  create-sheep initial-number-sheep  ; create the sheep, then initialize their variables
+  create-sheep 1 ; create the sheep, then initialize their variables
   [
     set shape "sheep"
     set color white
@@ -30,6 +32,8 @@ to setup
     set label-color blue - 2
     set energy sheep-energy
     setxy random-xcor random-ycor
+    set tar-xcor [xcor] of self
+    set tar-ycor [ycor] of self
   ]
 
   create-vultures initial-number-vultures  ; create the vultures, then initialize their variables
@@ -68,8 +72,6 @@ to go
       forage
     ]
     [
-      cohese
-      forage
       wiggle
     ]
     set energy energy - movement-cost  ; vultures lose energy as they wiggle
@@ -77,12 +79,40 @@ to go
     death ; vultures die if out of energy
     ; reproduce-vultures ; vultures reproduce at random rate governed by slider
   ]
+
+  stink
+
   tick
   display-labels
 end
 
 ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 ;%%%%%%%%%%%%%%%%% FUNCTIONS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+to stink
+  if count plume < puff-num
+  [create-plume 1 [
+    set shape "circle"
+    set color red
+    set size 0.5
+    set time puff-time
+    set conc puff-conc
+    setxy tar-xcor tar-ycor
+  ]]
+  ask plume [
+   set heading wind-dir + random-float wind-var - random-float wind-var
+   rt random wind-turb
+   lt random wind-turb
+   fd random-float wind-speed
+   set time time - 1
+   if (time < 0)
+    [
+      set time puff-time
+      setxy tar-xcor tar-ycor
+    ]
+  ]
+end
+
 ;; turtle procedure, the agent moves which costs it energy
 to move
   forward movement-rate
@@ -90,9 +120,23 @@ to move
 end
 
 to wiggle  ; turtle procedure
-  rt random movement-angle
-  lt random movement-angle
-  fd movement-rate
+  let my-neighbor vultures in-radius v2v-vision
+  ifelse my-neighbor != nobody
+  [
+    set heading mean-heading [heading] of vultures in-radius v2v-vision + random-float movement-var - random-float movement-var
+    fd movement-rate
+  ]
+  [
+    rt random movement-angle
+    lt random movement-angle
+    fd movement-rate
+  ]
+end
+
+to-report mean-heading [ headings ]
+  let mean-x mean map sin headings
+  let mean-y mean map cos headings
+  report atan mean-x mean-y
 end
 
 to cohese
@@ -102,55 +146,24 @@ to cohese
   let yp [ycor] of self
 
   ;lennard-jones F = D/r^2-D^1.7/r^2.7     --spears, physicomimetics
-
-  foreach [self] of other vultures in-radius v2v-vision
+  let my-neighbor min-one-of vultures in-radius v2v-vision [distance myself]
+  ;foreach [self] of other vultures in-radius v2v-vision
+  ask my-neighbor
   [
+    set current-heading [heading] of self
+    facexy xp yp
     let cur-rad ((xcor - xp) ^ 2 + (ycor - yp) ^ 2) ^ (0.5)
-
-    let sx 1
-    if ( (xcor - xp) < 0 )
-    [set sx (-1)]
-
-    let sy 1
-    if ( (ycor - yp) < 0 )
-    [set sy -1]
-
-    let Fx 0
-    let Fy 0
+    let F 0
 
     ifelse (cur-rad <=  sep-dist)
     [
-       set Fx (-1) * well-depth * ((2 * sep-dist / (cur-rad + sep-dist)) ^ well-alpha - (2 * sep-dist / (cur-rad + sep-dist))^ well-beta)
-       set Fy (-1) * well-depth * ((2 * sep-dist / (cur-rad + sep-dist)) ^ well-alpha - (2 * sep-dist / (cur-rad + sep-dist))^ well-beta)
+       set F (-1) * well-depth * ((2 * sep-dist / (cur-rad + sep-dist)) ^ well-alpha - (2 * sep-dist / (cur-rad + sep-dist))^ well-beta)
     ]
     [
-       set Fx well-depth * ((2 * sep-dist / (cur-rad + sep-dist)) ^ well-alpha - (2 * sep-dist / (cur-rad + sep-dist))^ well-beta)
-       set Fy well-depth * ((2 * sep-dist / (cur-rad + sep-dist)) ^ well-alpha - (2 * sep-dist / (cur-rad + sep-dist))^ well-beta)
+       set F well-depth * ((2 * sep-dist / (cur-rad + sep-dist)) ^ well-alpha - (2 * sep-dist / (cur-rad + sep-dist))^ well-beta)
     ]
 
-    set xcom ( sx * (0.5 * Fx / mass ) )
-    set ycom ( sy * (0.5 * Fy / mass ) )
-
-    set current-heading [heading] of self
-    ifelse (xcom >= 0)
-  [
-    set heading 270
-    fd abs xcom
-  ]
-  [
-    set heading 90
-    fd xcom
-  ]
-
-    ifelse (ycom >= 0)
-  [
-    set heading 180
-    fd abs ycom
-  ]
-  [
-    set heading 0
-    fd ycom
-  ]
+    fd ( F / well-depth ) * movement-rate
     set heading current-heading
   ]
     ; heading round min-one-of vultures [distance myself + random movement-var - random movement-var]
@@ -171,7 +184,9 @@ to eat-sheep  ; vulture procedure
       if energy < 0 [
         hatch 1 [
           set energy sheep-energy
-          setxy random-xcor random-ycor
+          set tar-xcor random-xcor
+          set tar-ycor random-ycor
+          setxy tar-xcor tar-ycor
         ]
         die]
     ]
@@ -253,13 +268,13 @@ end
 ; See Info tab for full copyright and license.
 @#$#@#$#@
 GRAPHICS-WINDOW
-465
-10
-978
-524
+420
+20
+830
+431
 -1
 -1
-5.0
+2.0
 1
 14
 1
@@ -269,10 +284,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--50
-50
--50
-50
+-100
+100
+-100
+100
 1
 1
 1
@@ -288,7 +303,7 @@ initial-number-sheep
 initial-number-sheep
 0
 10
-2.0
+1.0
 1
 1
 NIL
@@ -296,9 +311,9 @@ HORIZONTAL
 
 SLIDER
 5
-140
+100
 179
-173
+133
 sheep-energy
 sheep-energy
 0.0
@@ -310,40 +325,25 @@ NIL
 HORIZONTAL
 
 SLIDER
-5
-175
-179
-208
-sheep-reproduce
-sheep-reproduce
-1.0
-20.0
-4.0
-1.0
-1
-%
-HORIZONTAL
-
-SLIDER
-185
+190
 60
-402
+365
 93
 initial-number-vultures
 initial-number-vultures
 0
 50
-5.0
+4.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-185
-210
-405
-243
+5
+180
+180
+213
 vulture-gain-from-food
 vulture-gain-from-food
 0.0
@@ -354,26 +354,11 @@ vulture-gain-from-food
 NIL
 HORIZONTAL
 
-SLIDER
-183
-175
-403
-208
-vulture-reproduce
-vulture-reproduce
-0.0
-20.0
-5.0
-1.0
-1
-%
-HORIZONTAL
-
 BUTTON
-40
-390
-109
-423
+430
+440
+499
+473
 setup
 setup
 NIL
@@ -387,10 +372,10 @@ NIL
 1
 
 BUTTON
-300
-395
-375
-428
+750
+440
+825
+473
 go
 go
 T
@@ -404,10 +389,10 @@ NIL
 0
 
 PLOT
-1080
-25
-1470
-195
+1145
+20
+1420
+190
 populations
 time
 pop.
@@ -423,10 +408,10 @@ PENS
 "vultures" 1.0 0 -16449023 true "" "plot count vultures"
 
 MONITOR
-1190
-365
-1260
-410
+545
+435
+615
+480
 sheep
 count sheep
 3
@@ -434,10 +419,10 @@ count sheep
 11
 
 MONITOR
-1270
-365
-1337
-410
+625
+435
+692
+480
 vultures
 count vultures
 3
@@ -445,10 +430,10 @@ count vultures
 11
 
 SWITCH
-280
-25
-400
-58
+245
+20
+365
+53
 show-energy?
 show-energy?
 1
@@ -456,15 +441,15 @@ show-energy?
 -1000
 
 SLIDER
-5
+190
 100
-177
+365
 133
 vision
 vision
 0
 100
-15.0
+21.5
 0.5
 1
 patches
@@ -477,40 +462,40 @@ SWITCH
 58
 chase?
 chase?
-1
+0
 1
 -1000
 
 SLIDER
-5
-210
-180
-243
+10
+250
+185
+283
 movement-rate
 movement-rate
 0
 3
-0.73
+1.24
 0.01
 1
 patches
 HORIZONTAL
 
 TEXTBOX
-160
+130
 25
-225
-55
-Settings
-16
+245
+56
+Initial - Settings
+14
 0.0
 1
 
 PLOT
-1080
-200
-1470
-350
+880
+20
+1125
+190
 Energy
 NIL
 NIL
@@ -525,30 +510,15 @@ PENS
 "energy_vultures" 1.0 0 -16777216 true "" "plot mean [energy] of vultures"
 
 SLIDER
-185
+5
 140
-400
+180
 173
 vulture-energy
 vulture-energy
 0
 100
-50.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-185
-100
-405
-133
-v2v-vision
-v2v-vision
-0
-100
-30.0
+51.0
 1
 1
 NIL
@@ -556,9 +526,24 @@ HORIZONTAL
 
 SLIDER
 190
-250
-405
-283
+140
+365
+173
+v2v-vision
+v2v-vision
+0
+100
+18.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+10
+330
+185
+363
 movement-cost
 movement-cost
 0
@@ -570,15 +555,30 @@ NIL
 HORIZONTAL
 
 SLIDER
-5
-250
-177
-283
+1070
+260
+1242
+293
 sep-dist
 sep-dist
 0
 100
-28.0
+19.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+10
+370
+185
+403
+movement-angle
+movement-angle
+0
+360
+30.0
 1
 1
 NIL
@@ -587,29 +587,74 @@ HORIZONTAL
 SLIDER
 10
 290
-182
+185
 323
-movement-angle
-movement-angle
+movement-var
+movement-var
 0
-360
-57.0
+90
+50.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-195
-295
-367
-328
-movement-var
-movement-var
+885
+220
+1057
+253
+mass
+mass
+1
+100
+11.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+885
+260
+1057
+293
+well-depth
+well-depth
 0
 10
-1.0
+5.0
+0.1
 1
+NIL
+HORIZONTAL
+
+SLIDER
+1260
+220
+1432
+253
+well-alpha
+well-alpha
+0
+12
+2.0
+0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1260
+260
+1432
+293
+well-beta
+well-beta
+0
+6
+1.0
+0.1
 1
 NIL
 HORIZONTAL
@@ -619,10 +664,40 @@ SLIDER
 435
 187
 468
-mass
-mass
+puff-num
+puff-num
+0
+200
+161.0
 1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+15
+475
+187
+508
+puff-time
+puff-time
+0
 100
+46.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+15
+515
+187
+548
+puff-conc
+puff-conc
+1
+1000
 50.0
 1
 1
@@ -630,30 +705,15 @@ NIL
 HORIZONTAL
 
 SLIDER
-10
-485
-182
-518
-well-depth
-well-depth
+200
+330
+372
+363
+wind-speed
+wind-speed
 0
 10
-5.0
-0.1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-15
-525
-187
-558
-well-offset
-well-offset
-0
-20
-5.0
+0.9
 0.1
 1
 NIL
@@ -661,33 +721,88 @@ HORIZONTAL
 
 SLIDER
 200
-445
+290
 372
-478
-well-alpha
-well-alpha
+323
+wind-dir
+wind-dir
 0
-12
-2.7
-0.1
+359
+0.0
+1
 1
 NIL
 HORIZONTAL
 
 SLIDER
 200
-485
+250
 372
-518
-well-beta
-well-beta
+283
+wind-var
+wind-var
 0
-6
-1.7
-0.1
+180
+180.0
+1
 1
 NIL
 HORIZONTAL
+
+SLIDER
+200
+370
+372
+403
+wind-turb
+wind-turb
+0
+90
+2.0
+1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+1085
+225
+1235
+243
+Cohesion - Settings
+14
+0.0
+1
+
+TEXTBOX
+230
+225
+380
+243
+Wind - Settings
+14
+0.0
+1
+
+TEXTBOX
+30
+225
+180
+243
+Move - Settings
+14
+0.0
+1
+
+TEXTBOX
+35
+410
+185
+428
+Puff - Settings
+14
+0.0
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
