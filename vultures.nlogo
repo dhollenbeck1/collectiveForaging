@@ -1,7 +1,8 @@
-globals [ max-sheep tar-xcor tar-ycor tar-died]
+globals [ max-sheep tar-xcor tar-ycor tar-died  ]
 breed [ sheep a-sheep ]
 breed [ vultures a-vulture ]
 breed [ plume a-puff ]
+breed [ user the-user ]
 turtles-own [ energy ]            ;; both vultures and sheep have energy
 vultures-own [ maybe-bite         ;; holds list of sheep the vulture can see
                nearest-sheep      ;; holds the sheep targeted by a given vulture
@@ -13,17 +14,18 @@ vultures-own [ maybe-bite         ;; holds list of sheep the vulture can see
                ycom               ;; y component
                current-heading
                cohesing
+               ratio tick-start tick-stop energy-start energy-stop
              ]
+user-own [ xcom ycom user-tick-stop user-tick-start user-ratio energy-start energy-stop]
 plume-own [ time conc ]
 patches-own [ countdown ]
 
 ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 to setup
 ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
   clear-all
   ifelse netlogo-web? [set max-sheep 10000] [set max-sheep 30000]
-  ask patches [ set pcolor green ]
+  ask patches [ set pcolor grey ]
   set tar-died False
   create-sheep 1 ; create the sheep, then initialize their variables
   [
@@ -36,13 +38,13 @@ to setup
     set tar-xcor [xcor] of self
     set tar-ycor [ycor] of self
   ]
-
   create-vultures initial-number-vultures  ; create the vultures, then initialize their variables
   [
     set shape "bird side"
     set color black
     set size 2  ; easier to see
     set energy vulture-energy;random (2 * vulture-gain-from-food)
+    set energy-start vulture-energy
     setxy (random sep-dist) (random sep-dist)
     set descending False
     set feasting False
@@ -50,11 +52,22 @@ to setup
     set xcom 0
     set ycom 0
     set cohesing True
+    set ratio 0
+  set tick-start 0
+  set tick-stop 0
   ]
-
+  create-user 1 [
+   set shape "bird side"
+   set color orange
+   set size 2
+    set energy-start vulture-energy
+    set energy vulture-energy;random (2 * vulture-gain-from-food)
+    setxy (random sep-dist) (random sep-dist)
+    set xcom 0
+    set ycom 0
+  ]
   display-labels
   reset-ticks
-
 end
 
 ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -66,8 +79,8 @@ to go
   if not any? vultures and count sheep > max-sheep [ user-message "The sheep have inherited the earth" stop ]
 
   ask vultures [
-    ifelse descending
-        [set color red]
+     ifelse descending
+        [set color green]
         [set color black]
     ifelse (chase?)
     [
@@ -79,9 +92,8 @@ to go
       ]
       [
         find-sheep
-        let step 1
         face min-one-of maybe-bite [distance myself]
-        fd step
+        fd 0.5
         eat-sheep
       ]
     ]
@@ -91,9 +103,14 @@ to go
       eat-sheep
     ]
   ]
+  fog
+  ask user [
+    uncover-fog
+    user-move
+    user-eat
+  ]
 
   stink
-
   tick
   display-labels
 end
@@ -101,12 +118,80 @@ end
 ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 ;%%%%%%%%%%%%%%%%% FUNCTIONS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+to user-move
+  if mouse-down?
+  [
+   set xcom mouse-xcor
+   set ycom mouse-ycor
+  ]
+  facexy xcom ycom
+  fd movement-rate
+end
+
+to fog
+  ask vultures [ set color grey ]
+  ask sheep [ set color grey]
+  ask plume [ set color grey]
+end
+
+to uncover-fog
+  let vultures-in-view vultures in-radius vision
+  ask vultures-in-view [
+    set color black
+         ifelse descending
+        [set color red]
+        [set color black]
+    uncover-fog-vultures
+  ]
+
+  let sheep-in-view sheep in-radius vision
+  ask sheep-in-view [
+    if breed = sheep [
+     set color white
+    ]
+
+  ]
+
+  let plume-in-view plume in-radius vision
+  ask plume-in-view [
+    if breed = plume [
+    set color white
+    ]
+  ]
+end
+
+to uncover-fog-vultures
+  let vultures-in-view vultures in-radius vision with [descending]
+  if any? vultures-in-view [
+  ask vultures-in-view [
+    set color black
+         ifelse descending
+        [set color red]
+        [set color black]
+  ]
+
+  let sheep-in-view sheep in-radius vision
+  ask sheep-in-view [
+    if breed = sheep [
+     set color white
+    ]
+
+  ]
+
+  let plume-in-view plume in-radius vision
+  ask plume-in-view [
+    if breed = plume [
+    set color white
+    ]
+  ]]
+end
+
 to stink
   if count plume < puff-num
   [create-plume 1 [
     set shape "circle"
-    set color red
-    set size 0.5
+    set color white
+    set size 1
     set time puff-time
     set conc puff-conc
     setxy tar-xcor tar-ycor
@@ -192,12 +277,36 @@ to cohese
     ; heading round min-one-of vultures [distance myself + random movement-var - random movement-var]
 end
 
+
+
 ;to reproduce-vultures  ; vulture procedure
 ;  if random-float 100 < vulture-reproduce [  ; throw "dice" to see if you will reproduce
 ;    set energy (energy / 2)               ; divide energy between parent and offspring
 ;    hatch 1 [ rt random-float 360 fd 1 ]  ; hatch an offspring and move it forward 1 step
 ;  ]
 ;end
+
+to check-for-success
+ask user [
+    if (distancexy tar-xcor tar-ycor < 5)
+    [
+        set user-tick-stop ticks
+        set user-ratio ( sheep-energy / (user-tick-stop - user-tick-start) )
+        set user-tick-start user-tick-stop
+    ]
+  ]
+end
+
+to check-for-success-vultures
+ask vultures [
+    if (distancexy tar-xcor tar-ycor < 5)
+    [
+        set tick-stop ticks
+        set ratio ( sheep-energy / (tick-stop - tick-start) )
+        set tick-start tick-stop
+    ]
+  ]
+end
 
 to eat-sheep  ; vulture procedure
   let prey sheep in-radius 5                    ; grab a random sheep
@@ -210,6 +319,8 @@ to eat-sheep  ; vulture procedure
       if energy < 0
       [
         set tar-died True
+        check-for-success
+        check-for-success-vultures
         hatch 1
         [
           set energy sheep-energy
@@ -225,6 +336,42 @@ to eat-sheep  ; vulture procedure
         set energy energy + vulture-gain-from-food
     ]    ; get energy from eating
     [
+        set energy energy + vulture-gain-from-food
+        set tar-died False
+        reset-vulture-feasting
+    ]
+ ]
+end
+
+to user-eat  ; vulture procedure
+  let prey sheep in-radius 5                    ; grab a random sheep
+  if any? prey
+  [                          ; did we get one?  if so,
+    ask prey
+    [
+      set energy energy - vulture-gain-from-food
+      if energy < 0
+      [
+        set tar-died True
+        check-for-success-vultures
+        hatch 1
+        [
+          set energy sheep-energy
+          set tar-xcor random-xcor
+          set tar-ycor random-ycor
+          setxy tar-xcor tar-ycor
+        ]
+        die
+      ]
+    ]
+    ifelse (tar-died = false)
+    [
+        set energy energy + vulture-gain-from-food
+    ]    ; get energy from eating
+    [
+        set user-tick-stop ticks
+        set user-ratio ( sheep-energy / (user-tick-stop - user-tick-start) )
+        set user-tick-start user-tick-stop
         set energy energy + vulture-gain-from-food
         set tar-died False
         reset-vulture-feasting
@@ -295,7 +442,7 @@ to display-labels
   ask turtles [ set label "" ]
   if show-energy? [
     ask vultures [ set label round energy ]
-
+    ask user [ set label round energy ]
   ]
 end
 
@@ -304,13 +451,13 @@ end
 ; See Info tab for full copyright and license.
 @#$#@#$#@
 GRAPHICS-WINDOW
-420
-20
-830
-431
+370
+10
+958
+599
 -1
 -1
-2.0
+5.743
 1
 14
 1
@@ -320,10 +467,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--100
-100
--100
-100
+-50
+50
+-50
+50
 1
 1
 1
@@ -353,8 +500,8 @@ SLIDER
 sheep-energy
 sheep-energy
 0.0
-200
-50.0
+1000
+400.0
 1.0
 1
 NIL
@@ -369,7 +516,7 @@ initial-number-vultures
 initial-number-vultures
 0
 50
-29.0
+5.0
 1
 1
 NIL
@@ -383,18 +530,18 @@ SLIDER
 vulture-gain-from-food
 vulture-gain-from-food
 0.0
-100.0
+5
 1.0
-1.0
+0.1
 1
 NIL
 HORIZONTAL
 
 BUTTON
-430
-440
-499
-473
+995
+355
+1064
+388
 setup
 setup
 NIL
@@ -408,10 +555,10 @@ NIL
 1
 
 BUTTON
-750
-440
-825
-473
+995
+400
+1070
+433
 go
 go
 T
@@ -425,10 +572,10 @@ NIL
 0
 
 PLOT
-1145
-20
-1420
-190
+1225
+15
+1500
+185
 populations
 time
 pop.
@@ -440,14 +587,18 @@ true
 true
 "" ""
 PENS
-"sheep" 1.0 0 -612749 true "" "plot count sheep"
-"vultures" 1.0 0 -16449023 true "" "plot count vultures"
+"pen-1" 1.0 0 -7500403 true "" "plot [energy] of a-vulture 1"
+"pen-2" 1.0 0 -2674135 true "" "plot [energy] of a-vulture 2"
+"pen-3" 1.0 0 -955883 true "" "plot [energy] of a-vulture 3"
+"pen-4" 1.0 0 -6459832 true "" "plot [energy] of a-vulture 4"
+"pen-5" 1.0 0 -1184463 true "" "plot [energy] of a-vulture 5"
+"pen-6" 1.0 0 -10899396 true "" "plot mean [energy] of user"
 
 MONITOR
-545
-435
-615
-480
+980
+195
+1050
+240
 sheep
 count sheep
 3
@@ -455,10 +606,10 @@ count sheep
 11
 
 MONITOR
-625
-435
-692
-480
+1060
+195
+1127
+240
 vultures
 count vultures
 3
@@ -485,7 +636,7 @@ vision
 vision
 0
 100
-25.0
+25.5
 0.5
 1
 patches
@@ -511,7 +662,7 @@ movement-rate
 movement-rate
 0
 3
-3.0
+0.51
 0.01
 1
 patches
@@ -528,13 +679,13 @@ Initial - Settings
 1
 
 PLOT
-880
-20
-1125
-190
-Energy
-NIL
-NIL
+960
+15
+1205
+185
+Success
+time
+success ratio
 0.0
 10.0
 0.0
@@ -543,7 +694,8 @@ true
 false
 "" ""
 PENS
-"energy_vultures" 1.0 0 -16777216 true "" "plot mean [energy] of vultures"
+"energy_vultures" 1.0 0 -16777216 true "" "plot mean [ratio] of vultures"
+"pen-1" 1.0 0 -2674135 true "" "plot mean [user-ratio] of user"
 
 SLIDER
 5
@@ -554,7 +706,7 @@ vulture-energy
 vulture-energy
 0
 100
-51.0
+100.0
 1
 1
 NIL
@@ -569,7 +721,7 @@ v2v-vision
 v2v-vision
 0
 100
-30.0
+25.0
 1
 1
 NIL
@@ -584,17 +736,17 @@ movement-cost
 movement-cost
 0
 1
-0.05
+0.5
 0.01
 1
 NIL
 HORIZONTAL
 
 SLIDER
-1070
-260
-1242
-293
+1150
+255
+1322
+288
 sep-dist
 sep-dist
 0
@@ -629,17 +781,17 @@ movement-var
 movement-var
 0
 90
-34.0
+20.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-890
-260
-1062
-293
+970
+255
+1142
+288
 well-depth
 well-depth
 0
@@ -651,10 +803,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-1250
-300
-1422
-333
+1330
+295
+1502
+328
 well-alpha
 well-alpha
 0
@@ -666,10 +818,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-1250
-260
-1422
-293
+1330
+255
+1502
+288
 well-beta
 well-beta
 0
@@ -689,7 +841,7 @@ puff-num
 puff-num
 0
 200
-89.0
+0.0
 1
 1
 NIL
@@ -704,7 +856,7 @@ puff-time
 puff-time
 0
 100
-39.0
+100.0
 1
 1
 NIL
@@ -734,7 +886,7 @@ wind-speed
 wind-speed
 0
 10
-2.4
+1.0
 0.1
 1
 NIL
@@ -749,7 +901,7 @@ wind-dir
 wind-dir
 0
 359
-101.0
+213.0
 1
 1
 NIL
@@ -764,7 +916,7 @@ wind-var
 wind-var
 0
 360
-41.0
+32.0
 1
 1
 NIL
@@ -786,10 +938,10 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-1085
-225
-1235
-243
+1165
+220
+1315
+238
 Cohesion - Settings
 14
 0.0
@@ -826,30 +978,30 @@ Puff - Settings
 1
 
 SLIDER
-890
-300
-1062
-333
+970
+295
+1142
+328
 d
 d
 0
 20
-2.0
+1.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-1070
-300
-1242
-333
+1150
+295
+1322
+328
 c
 c
 0
 20
-2.0
+1.0
 1
 1
 NIL
