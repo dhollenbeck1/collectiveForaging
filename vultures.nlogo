@@ -25,7 +25,10 @@ to setup
 ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   clear-all
   ifelse netlogo-web? [set max-sheep 10000] [set max-sheep 30000]
-  ask patches [ set pcolor grey ]
+
+  ifelse users? [
+    ask patches [ set pcolor grey ]]
+  [ask patches [ set pcolor green - 2 ]]
   set tar-died False
   create-sheep 1 ; create the sheep, then initialize their variables
   [
@@ -66,6 +69,8 @@ to setup
     set xcom 0
     set ycom 0
   ]
+  ifelse users? []
+  [ask user [die]]
   display-labels
   reset-ticks
 end
@@ -80,7 +85,7 @@ to go
 
   ask vultures [
      ifelse descending
-        [set color green]
+        [set color red]
         [set color black]
     ifelse (chase?)
     [
@@ -103,12 +108,14 @@ to go
       eat-sheep
     ]
   ]
+
+  if users? [
   fog
   ask user [
     uncover-fog
     user-move
     user-eat
-  ]
+  ]]
 
   stink
   tick
@@ -1006,6 +1013,17 @@ c
 1
 NIL
 HORIZONTAL
+
+SWITCH
+245
+180
+348
+213
+users?
+users?
+1
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
