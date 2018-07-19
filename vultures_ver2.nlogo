@@ -1,35 +1,56 @@
-globals [ max-sheep tar-xcor tar-ycor tar-died  ]
-breed [ sheep a-sheep ]
+;;                     Vultures - ver2
+;;                   (SIMULATION VERSION)
+;;
+;;   Derek Hollenbeck, Daniel Schloesser, Taran Rallings,
+;;   Chris Kello, and YangQuan Chen
+;;   University of California, Merced
+;;
+;;   EMAIL: dhollenbeck@ucmerced.edu
+;; =============================================================
+;; This algorithm simulates vultures flocking and foraging for food in an
+;; effort to understand foraging dynamics. There are two main variables:
+;; correlation and cohesion. Correlation is the averaging of flockmates
+;; headings with the current vulture with a vision distance. Coheion is
+;; force the vulture feels with its neighbors under a Lennard-Jones Potential
+;; control law.
+;;
+;; This work was supported by the National Science Foundation
+;; NRT Intelligent Adaptive Systems grant.
+;; ==============================================================
+
+globals
+[
+  xcor-tar ycor-tar hp-tar tar-died
+  flight-speed turn-angle visual-dist
+  cohesion-on correlation-on
+]
+breed [ target a-target ]
 breed [ vultures a-vulture ]
-breed [ plume a-puff ]
-breed [ user the-user ]
-turtles-own [ energy ]            ;; both vultures and sheep have energy
-vultures-own [ maybe-bite         ;; holds list of sheep the vulture can see
-               nearest-sheep      ;; holds the sheep targeted by a given vulture
-               descending
-               wake
-               nearest-neighbor
-               feasting
-               xcom               ;; x component
-               ycom               ;; y component
-               current-heading
-               cohesing
-               ratio tick-start tick-stop energy-start energy-stop
-             ]
-user-own [ xcom ycom user-tick-stop user-tick-start user-ratio energy-start energy-stop]
-plume-own [ time conc ]
-patches-own [ countdown ]
+breed [ user a-user ]
+turtles-own [ energy ]
+vultures-own
+[
+    maybe-bite         ;; holds list of sheep the vulture can see
+    nearest-target      ;; holds the sheep targeted by a given vulture
+    descending
+    wake
+    nearest-neighbor
+    feasting
+    xcom               ;; x component
+    ycom               ;; y component
+    current-heading
+    cohesing
+    ratio tick-start tick-stop energy-start energy-stop
+]
 
-;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+;; %%%%%%%%%%%%%%%%%%%%% SETUP %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 to setup
-;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  clear-all
-  ifelse netlogo-web? [set max-sheep 10000] [set max-sheep 30000]
-
-  ifelse users? [
-    ask patches [ set pcolor grey ]]
+  ifelse users?
+  [ask patches [ set pcolor grey ]]
   [ask patches [ set pcolor green - 2 ]]
-  set tar-died False
+
+  set  False
+
   create-sheep initial-number-sheep ; create the sheep, then initialize their variables
   [
     set shape "sheep"
@@ -41,422 +62,14 @@ to setup
     set tar-xcor [xcor] of self
     set tar-ycor [ycor] of self
   ]
-  create-vultures initial-number-vultures  ; create the vultures, then initialize their variables
-  [
-    set shape "bird side"
-    set color black
-    set size 4  ; easier to see
-    set energy vulture-energy;random (2 * vulture-gain-from-food)
-    set energy-start vulture-energy
-    setxy (random sep-dist) (random sep-dist)
-    set descending False
-    set feasting False
-    set nearest-neighbor no-turtles
-    set xcom 0
-    set ycom 0
-    set cohesing True
-    set ratio 0
-  set tick-start 0
-  set tick-stop 0
-  ]
-  create-user 1 [
-   set shape "bird side"
-   set color orange
-   set size 2
-    set energy-start vulture-energy
-    set energy vulture-energy;random (2 * vulture-gain-from-food)
-    setxy (random sep-dist) (random sep-dist)
-    set xcom 0
-    set ycom 0
-    pen-down
-  ]
-  ifelse users? []
-  [ask user [die]]
-  display-labels
-  reset-ticks
 end
 
-;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+;; %%%%%%%%%%%%%%%%%%%%% PLAY %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 to go
-;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  ; stop the simulation of no vultures or sheep
-  if not any? turtles [ stop ]
-  ; stop the model if there are no vultures and the number of sheep gets very large
-  if not any? vultures and count sheep > max-sheep [ user-message "The sheep have inherited the earth" stop ]
 
-  ask vultures [
-     ifelse descending
-        [set color red]
-        [set color black]
-    ifelse (chase?)
-    [
-      ifelse (feasting = False)
-      [
-        forage
-        set energy energy - movement-cost
-        eat-sheep
-      ]
-      [
-        find-sheep
-        face min-one-of maybe-bite [distance myself]
-        fd 0.5
-        eat-sheep
-      ]
-    ]
-    [
-      wiggle
-      set energy energy - movement-cost
-      eat-sheep
-    ]
-  ]
-
-  if users? [
-  fog
-  ask user [
-    uncover-fog
-    user-move
-    user-eat
-  ]]
-
-  stink
-  tick
-  display-labels
 end
 
-;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-;%%%%%%%%%%%%%%%%% FUNCTIONS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-to user-move
-  if mouse-down?
-  [
-   set xcom mouse-xcor
-   set ycom mouse-ycor
-  ]
-  facexy xcom ycom
-  fd movement-rate
-end
-
-to fog
-  ask vultures [ set color grey ]
-  ask sheep [ set color grey]
-  ask plume [ set color grey]
-end
-
-to uncover-fog
-  let vultures-in-view vultures in-radius vision
-  ask vultures-in-view [
-    set color black
-         ifelse descending
-        [set color red]
-        [set color black]
-    uncover-fog-vultures
-  ]
-
-  let sheep-in-view sheep in-radius vision
-  ask sheep-in-view [
-    if breed = sheep [
-     set color white
-    ]
-
-  ]
-
-  let plume-in-view plume in-radius vision
-  ask plume-in-view [
-    if breed = plume [
-    set color white
-    ]
-  ]
-end
-
-to uncover-fog-vultures
-  let vultures-in-view vultures in-radius vision with [descending]
-  if any? vultures-in-view [
-  ask vultures-in-view [
-    set color black
-         ifelse descending
-        [set color red]
-        [set color black]
-  ]
-
-  let sheep-in-view sheep in-radius vision
-  ask sheep-in-view [
-    if breed = sheep [
-     set color white
-    ]
-
-  ]
-
-  let plume-in-view plume in-radius vision
-  ask plume-in-view [
-    if breed = plume [
-    set color white
-    ]
-  ]]
-end
-
-to stink
-  if count plume < puff-num
-  [create-plume 1 [
-    set shape "circle"
-    set color white
-    set size 1
-    set time puff-time
-    set conc puff-conc
-    setxy tar-xcor tar-ycor
-  ]]
-  ask plume [
-   set heading wind-dir + random-float wind-var - random-float wind-var
-   rt random wind-turb
-   lt random wind-turb
-   fd random-float wind-speed
-   set time time - 1
-   if (time < 0)
-    [
-      set time puff-time
-      setxy tar-xcor tar-ycor
-    ]
-  ]
-end
-
-;; turtle procedure, the agent moves which costs it energy
-to move
-  forward movement-rate
-  ;set energy energy - movement-cost ;; reduce the energy by the cost of movement
-end
-
-to wiggle  ; turtle procedure
-  let my-neighbor vultures in-radius v2v-vision
-  ifelse any? my-neighbor
-  [
-    set heading mean-heading [heading] of vultures in-radius v2v-vision + random-float movement-var - random-float movement-var
-    fd movement-rate
-  ]
-  [
-    rt random movement-angle
-    lt random movement-angle
-    fd movement-rate
-  ]
-end
-
-to-report mean-heading [ headings ]
-  let mean-x mean map sin headings
-  let mean-y mean map cos headings
-  report atan mean-x mean-y
-end
-
-to cohese
-  ;let xcom-list [xcor] of vultures
-  ;let ycom-list [ycor] of vultures
-  let xp [xcor] of self
-  let yp [ycor] of self
-
-  ;lennard-jones F = D/r^2-D^1.7/r^2.7     --spears, physicomimetics
-  let mylist vultures in-radius (v2v-vision * 2)
-  ask mylist
-    [
-    set current-heading [heading] of self
-    facexy xp yp
-    let cur-rad (distancexy xp yp)
-    let F 0
-    let sigma sep-dist / (2 ^ (1 / 6))
-    if (cur-rad > 0) [
-       set F (24 * well-depth * (d * sigma ^ well-alpha / cur-rad ^ (well-alpha + 1) - c * sigma ^ well-beta / cur-rad ^ (well-beta + 1)))
-    ]
-
-    if (cur-rad <=  sep-dist)
-    [
-       ifelse (F > 0) [
-        let step ( F / well-depth ) * movement-rate
-        if ( step > 1 * movement-rate)
-        [
-          set F (-1) * movement-rate
-        ]
-      ]
-      [
-       set F ((-1) * F)
-      ]
-    ]
-
-    fd F
-    set heading current-heading
-      ]
-
-
-    ; heading round min-one-of vultures [distance myself + random movement-var - random movement-var]
-end
-
-
-
-;to reproduce-vultures  ; vulture procedure
-;  if random-float 100 < vulture-reproduce [  ; throw "dice" to see if you will reproduce
-;    set energy (energy / 2)               ; divide energy between parent and offspring
-;    hatch 1 [ rt random-float 360 fd 1 ]  ; hatch an offspring and move it forward 1 step
-;  ]
-;end
-
-to check-for-success
-ask user [
-    if (distancexy tar-xcor tar-ycor < 5)
-    [
-        set user-tick-stop ticks
-        set user-ratio ( sheep-energy / (user-tick-stop - user-tick-start) )
-        set user-tick-start user-tick-stop
-    ]
-  ]
-end
-
-to check-for-success-vultures
-ask vultures [
-    if (distancexy tar-xcor tar-ycor < 5)
-    [
-        set tick-stop ticks
-        set ratio ( sheep-energy / (tick-stop - tick-start) )
-        set tick-start tick-stop
-    ]
-  ]
-end
-
-to eat-sheep  ; vulture procedure
-  let prey sheep in-radius 5                    ; grab a random sheep
-  if any? prey
-  [                          ; did we get one?  if so,
-    set feasting True
-    ask prey
-    [
-      set energy energy - vulture-gain-from-food
-      if energy < 0
-      [
-        set tar-died True
-        check-for-success
-        check-for-success-vultures
-        hatch 1
-        [
-          set energy sheep-energy
-          set tar-xcor random-xcor
-          set tar-ycor random-ycor
-          setxy tar-xcor tar-ycor
-        ]
-        die
-      ]
-    ]
-    ifelse (tar-died = false)
-    [
-        set energy energy + vulture-gain-from-food
-    ]    ; get energy from eating
-    [
-        set energy energy + vulture-gain-from-food
-        set tar-died False
-        reset-vulture-feasting
-    ]
- ]
-end
-
-to user-eat  ; vulture procedure
-  let prey sheep in-radius 5                    ; grab a random sheep
-  if any? prey
-  [                          ; did we get one?  if so,
-    ask prey
-    [
-      set energy energy - vulture-gain-from-food
-      if energy < 0
-      [
-        set tar-died True
-        check-for-success-vultures
-        hatch 1
-        [
-          set energy sheep-energy
-          set tar-xcor random-xcor
-          set tar-ycor random-ycor
-          setxy tar-xcor tar-ycor
-        ]
-        die
-      ]
-    ]
-    ifelse (tar-died = false)
-    [
-        set energy energy + vulture-gain-from-food
-    ]    ; get energy from eating
-    [
-        set user-tick-stop ticks
-        set user-ratio ( sheep-energy / (user-tick-stop - user-tick-start) )
-        set user-tick-start user-tick-stop
-        set energy energy + vulture-gain-from-food
-        set tar-died False
-        reset-vulture-feasting
-    ]
- ]
-end
-
-to reset-vulture-feasting
-  ask vultures
-  [
-    set feasting False
-  ]
-end
-
-; need to break down eat-sheep so that
-; 1) vultures stop at sheep
-; 2) sheep have a set food value equal to their energy
-; 3) each tick each vulture consumes some portion of the sheep
-; 4) sheep dies when totally consumed
-; 5) vultures start flying again
-
-
-to death  ; vulture procedure
-  ; when energy dips below zero, die
-  if energy < 0 [ die ]
-end
-
-to forage
-  find-sheep
-  ifelse any? maybe-bite
-      [find-nearest-sheep
-      face nearest-sheep
-      set descending True
-      set cohesing False
-      move]
-      [find-wake
-      ifelse any? nearest-neighbor
-      [ find-nearest-neighbor
-        face nearest-neighbor
-        set descending True
-        set cohesing False
-        move]
-      [set descending False
-       set cohesing True
-       wiggle
-       cohese
-       ]]
-end
-
-to find-sheep ;; vulture procedure
-  set maybe-bite sheep in-radius vision
-end
-
-to find-nearest-sheep ;; vulture procedure
-  set nearest-sheep min-one-of maybe-bite [distance myself]
-  end
-
-to find-wake  ;; vulture procedure
-  set wake vultures in-radius v2v-vision with [descending]
-end
-
-to find-nearest-neighbor ;; vulture procedure
-  set nearest-neighbor min-one-of wake [distance myself]
-end
-
-
-to display-labels
-  ask turtles [ set label "" ]
-  if show-energy? [
-    ask vultures [ set label round energy ]
-    ask user [ set label round energy ]
-  ]
-end
-
-
-; Copyright 1997 Uri Wilensky.
-; See Info tab for full copyright and license.
+;; %%%%%%%%%%%%%%%%%%%%% FUNCTIONS %%%%%%%%%%%%%%%%%%%%%%%%%
 @#$#@#$#@
 GRAPHICS-WINDOW
 370
@@ -494,7 +107,7 @@ initial-number-sheep
 initial-number-sheep
 0
 10
-10.0
+1.0
 1
 1
 NIL
@@ -524,7 +137,7 @@ initial-number-vultures
 initial-number-vultures
 0
 50
-35.0
+5.0
 1
 1
 NIL
@@ -729,7 +342,7 @@ v2v-vision
 v2v-vision
 0
 100
-12.0
+11.0
 1
 1
 NIL
@@ -849,7 +462,7 @@ puff-num
 puff-num
 0
 200
-0.0
+25.0
 1
 1
 NIL
@@ -864,7 +477,7 @@ puff-time
 puff-time
 0
 100
-50.0
+80.0
 1
 1
 NIL
@@ -909,7 +522,7 @@ wind-dir
 wind-dir
 0
 359
-158.0
+94.0
 1
 1
 NIL
@@ -924,7 +537,7 @@ wind-var
 wind-var
 0
 360
-5.0
+15.0
 1
 1
 NIL
@@ -939,7 +552,7 @@ wind-turb
 wind-turb
 0
 90
-22.0
+50.0
 1
 1
 NIL
