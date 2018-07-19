@@ -21,7 +21,8 @@
 globals
 [
   xcor-tar ycor-tar reset-tar
-  mov-speed mov-max-scale turn-angle visual-scale visual-dist visual-dist-food eating-dist
+  mov-speed mov-max-scale turn-angle
+  visual-scale visual-dist visual-dist-food eating-dist
   cohesion-on correlation-on
   start-dist
   sep-dist well-depth well-alpha well-beta c d
@@ -178,8 +179,10 @@ to cohese
     ]
   ]
     ifelse abs F > (mov-speed * mov-max-scale)
-    [set F F * mov-speed * mov-max-scale / abs F
-    fd F]
+    [
+      set F F * mov-speed * mov-max-scale / abs F
+      fd F
+    ]
     [fd F]
 
   set heading current-heading
@@ -439,7 +442,7 @@ SWITCH
 240
 cohesion?
 cohesion?
-1
+0
 1
 -1000
 
@@ -450,7 +453,7 @@ SWITCH
 277
 correlation?
 correlation?
-1
+0
 1
 -1000
 
