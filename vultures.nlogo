@@ -30,11 +30,11 @@ to setup
     ask patches [ set pcolor grey ]]
   [ask patches [ set pcolor green - 2 ]]
   set tar-died False
-  create-sheep 1 ; create the sheep, then initialize their variables
+  create-sheep initial-number-sheep ; create the sheep, then initialize their variables
   [
     set shape "sheep"
     set color white
-    set size 1.5  ; easier to see
+    set size 3  ; easier to see
     set label-color blue - 2
     set energy sheep-energy
     setxy random-xcor random-ycor
@@ -45,7 +45,7 @@ to setup
   [
     set shape "bird side"
     set color black
-    set size 2  ; easier to see
+    set size 4  ; easier to see
     set energy vulture-energy;random (2 * vulture-gain-from-food)
     set energy-start vulture-energy
     setxy (random sep-dist) (random sep-dist)
@@ -68,6 +68,7 @@ to setup
     setxy (random sep-dist) (random sep-dist)
     set xcom 0
     set ycom 0
+    pen-down
   ]
   ifelse users? []
   [ask user [die]]
@@ -460,11 +461,11 @@ end
 GRAPHICS-WINDOW
 370
 10
-958
-599
+943
+584
 -1
 -1
-5.743
+2.811
 1
 14
 1
@@ -474,10 +475,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--50
-50
--50
-50
+-100
+100
+-100
+100
 1
 1
 1
@@ -493,7 +494,7 @@ initial-number-sheep
 initial-number-sheep
 0
 10
-1.0
+10.0
 1
 1
 NIL
@@ -523,7 +524,7 @@ initial-number-vultures
 initial-number-vultures
 0
 50
-5.0
+35.0
 1
 1
 NIL
@@ -545,10 +546,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-995
-355
-1064
-388
+105
+525
+174
+558
 setup
 setup
 NIL
@@ -562,10 +563,10 @@ NIL
 1
 
 BUTTON
-995
-400
-1070
-433
+250
+525
+325
+558
 go
 go
 T
@@ -643,17 +644,17 @@ vision
 vision
 0
 100
-25.5
+11.0
 0.5
 1
-patches
+NIL
 HORIZONTAL
 
 SWITCH
 5
-25
+20
 95
-58
+53
 chase?
 chase?
 0
@@ -669,7 +670,7 @@ movement-rate
 movement-rate
 0
 3
-0.51
+1.5
 0.01
 1
 patches
@@ -728,7 +729,7 @@ v2v-vision
 v2v-vision
 0
 100
-25.0
+12.0
 1
 1
 NIL
@@ -758,7 +759,7 @@ sep-dist
 sep-dist
 0
 100
-5.0
+10.0
 1
 1
 NIL
@@ -773,7 +774,7 @@ movement-angle
 movement-angle
 0
 360
-360.0
+92.0
 1
 1
 NIL
@@ -863,7 +864,7 @@ puff-time
 puff-time
 0
 100
-100.0
+50.0
 1
 1
 NIL
@@ -908,7 +909,7 @@ wind-dir
 wind-dir
 0
 359
-213.0
+158.0
 1
 1
 NIL
@@ -923,7 +924,7 @@ wind-var
 wind-var
 0
 360
-32.0
+5.0
 1
 1
 NIL
@@ -938,7 +939,7 @@ wind-turb
 wind-turb
 0
 90
-42.0
+22.0
 1
 1
 NIL
@@ -1467,6 +1468,178 @@ setup
 repeat 75 [ go ]
 @#$#@#$#@
 @#$#@#$#@
+<experiments>
+  <experiment name="experiment" repetitions="1" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <timeLimit steps="10000"/>
+    <metric>mean [ratio] of vultures</metric>
+    <enumeratedValueSet variable="movement-var">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="well-alpha">
+      <value value="12"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="puff-time">
+      <value value="100"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="show-energy?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wind-var">
+      <value value="32"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-energy">
+      <value value="400"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="vision">
+      <value value="25.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-number-sheep">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="well-beta">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="puff-num">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wind-dir">
+      <value value="213"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="sep-dist" first="5" step="3" last="20"/>
+    <enumeratedValueSet variable="chase?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-number-vultures">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="puff-conc">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wind-speed">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="movement-cost">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="movement-rate">
+      <value value="0.51"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="movement-angle">
+      <value value="360"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="c">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="d">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="well-depth">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="v2v-vision">
+      <value value="25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="vulture-energy">
+      <value value="100"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wind-turb">
+      <value value="42"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="users?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="vulture-gain-from-food">
+      <value value="1"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="experiment" repetitions="3" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <timeLimit steps="10000"/>
+    <metric>mean [ratio] of vultures</metric>
+    <enumeratedValueSet variable="movement-var">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="well-alpha">
+      <value value="12"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="puff-time">
+      <value value="100"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="show-energy?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wind-var">
+      <value value="32"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-energy">
+      <value value="400"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="vision">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-number-sheep">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="well-beta">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="puff-num">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wind-dir">
+      <value value="213"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="sep-dist" first="25" step="5" last="50"/>
+    <enumeratedValueSet variable="chase?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-number-vultures">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="puff-conc">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wind-speed">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="movement-cost">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="movement-rate">
+      <value value="0.51"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="movement-angle">
+      <value value="360"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="c">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="d">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="well-depth">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="v2v-vision">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="vulture-energy">
+      <value value="100"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wind-turb">
+      <value value="42"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="users?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="vulture-gain-from-food">
+      <value value="1"/>
+    </enumeratedValueSet>
+  </experiment>
+</experiments>
 @#$#@#$#@
 @#$#@#$#@
 default
