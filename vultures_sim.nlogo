@@ -380,8 +380,8 @@ SLIDER
 hp-tar
 hp-tar
 1
-100
-100.0
+1000
+500.0
 1
 1
 NIL
@@ -403,10 +403,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-20
-204
-192
-237
+27
+439
+199
+472
 size-of-map
 size-of-map
 0
@@ -418,10 +418,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-20
-245
-192
-278
+27
+480
+199
+513
 size-of-patch
 size-of-patch
 1
@@ -433,10 +433,10 @@ NIL
 HORIZONTAL
 
 SWITCH
-26
-287
-136
-320
+22
+207
+192
+240
 cohesion?
 cohesion?
 1
@@ -444,10 +444,10 @@ cohesion?
 -1000
 
 SWITCH
-34
-332
-154
-365
+21
+244
+193
+277
 correlation?
 correlation?
 1
