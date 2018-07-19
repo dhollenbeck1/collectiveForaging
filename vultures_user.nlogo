@@ -25,19 +25,22 @@
 
 globals
 [
-  xcor-tar ycor-tar reset-tar
+  size-of-map size-of-patch bkg-color
+  xcor-tar ycor-tar reset-tar tar-color
+  xcor-user ycor-user
   sheep-hp
   sep-dist well-depth well-alpha well-beta c d
   visual-scale visual-dist visual-dist-food eating-dist
   mov-speed mov-max-scale turn-angle
-  bird-size
-  vulture-gain vulture-num
+  size-descend size-eating size-norm
+  vulture-gain vulture-num vulture-color descend-color
   users-on cohesion-on correlation-on
 ]
 breed [ sheep a-sheep ]
 breed [ vultures a-vulture ]
 breed [ plume a-puff ]
 breed [ user the-user ]
+breed [ vision-boundary a-vision-boundary ]
 turtles-own [ energy ]            ;; both vultures and sheep have energy
 vultures-own [ maybe-bite         ;; holds list of sheep the vulture can see
                nearest-sheep      ;; holds the sheep targeted by a given vulture
@@ -52,6 +55,7 @@ vultures-own [ maybe-bite         ;; holds list of sheep the vulture can see
                ratio tick-start tick-stop energy-start energy-stop
              ]
 user-own [ xcom ycom user-tick-stop user-tick-start user-ratio energy-start energy-stop]
+vision-boundary-own [ xcom ycom ]
 plume-own [ time conc ]
 patches-own [ countdown ]
 
@@ -60,13 +64,23 @@ patches-own [ countdown ]
 to setup
   clear-all
 
+  ;; world settings
+  set size-of-map                100
+  set size-of-patch              2.5
+  resize-world (-1 * size-of-map) size-of-map (-1 * size-of-map) size-of-map
+  set-patch-size size-of-patch
+
   ;; Patch settings
+  set bkg-color                  grey
   ask patches [ set pcolor grey ]
 
   ;; Global settings
   set reset-tar                  False
-  set bird-size                  4
-  set sheep-hp                   100
+  set tar-color                  white
+  set vulture-color              black
+  set descend-color              red
+  set size-norm                  4
+  set sheep-hp                   500
   set vulture-gain               1
   set vulture-num                10
   set sep-dist                   10
@@ -79,9 +93,9 @@ to setup
   set visual-dist-food           15
   set visual-dist                visual-dist-food * visual-scale
   set eating-dist                1
-  set mov-speed                  5
+  set mov-speed                  0.7
   set mov-max-scale              1.5
-  set turn-angle                 90
+  set turn-angle                 45
 
   ;; Variable settings
   set users-on                   True
@@ -91,9 +105,9 @@ to setup
   ;; initialize sheep
   create-sheep 1 ; create the sheep, then initialize their variables
   [
-    set shape "sheep"
-    set color white
-    set size 3
+    set shape "circle"
+    set color bkg-color
+    set size size-norm
     set label-color blue - 2
     set energy sheep-hp
     setxy random-xcor random-ycor
@@ -104,9 +118,9 @@ to setup
   ;; initialize vultures
   create-vultures vulture-num  ; create the vultures, then initialize their variables
   [
-    set shape                      "bird side"
-    set color                       black
-    set size                        bird-size
+    set shape                      "airplane"
+    set color                       bkg-color
+    set size                        size-norm
     set descending                  False
     set feasting                    False
     set nearest-neighbor            no-turtles
@@ -121,13 +135,22 @@ to setup
 
   ;; initialize user
   create-user 1 [
-    set shape                      "bird side"
+    set shape                      "airplane"
     set color                       orange
-    set size                        bird-size
+    set size                        size-norm
     set xcom                        0
     set ycom                        0
     setxy (random sep-dist) (random sep-dist)
+    set xcor-user [xcor] of self
+    set ycor-user [ycor] of self
     ;pen-down
+  ]
+
+  create-vision-boundary 1 [
+   set shape                      "circle 3"
+   set color                       orange
+   set size                        visual-dist * size-of-patch * 0.9
+   setxy xcor-user ycor-user
   ]
 
   ;display-labels
@@ -140,8 +163,8 @@ to go
   ask vultures
   [
      ifelse descending
-        [set color red]
-        [set color black]
+        [set color descend-color]
+        [set color vulture-color ]
 
       ifelse (feasting = False)
       [
@@ -164,6 +187,7 @@ to go
       uncover-fog
       user-move
       user-eat
+      update-vision-boundary
     ]
   ]
   tick
@@ -183,8 +207,19 @@ to user-move
 end
 
 to fog
-  ask vultures [ set color grey ]
-  ask sheep [ set color grey]
+  ask vultures [ set color bkg-color ]
+  ask sheep [ set color bkg-color]
+end
+
+
+;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+to update-vision-boundary
+  set xcor-user [xcor] of self
+  set ycor-user [ycor] of self
+  ask vision-boundary
+  [
+    setxy xcor-user ycor-user
+  ]
 end
 
 
@@ -192,17 +227,17 @@ end
 to uncover-fog
   let vultures-in-view vultures in-radius visual-dist
   ask vultures-in-view [
-    set color black
+    set color vulture-color
     ifelse descending
-      [set color red]
-      [set color black]
+      [set color descend-color]
+      [set color vulture-color]
     uncover-fog-vultures
   ]
 
   let sheep-in-view sheep in-radius visual-dist-food
   ask sheep-in-view [
     if breed = sheep
-      [set color white]
+      [set color tar-color]
   ]
 end
 
@@ -214,17 +249,17 @@ to uncover-fog-vultures
   [
     ask vultures-in-view
     [
-    set color black
+    set color vulture-color
     ifelse descending
-      [set color red]
-      [set color black]
+      [set color descend-color]
+      [set color vulture-color]
     ]
 
     let sheep-in-view sheep in-radius visual-dist-food
     ask sheep-in-view
     [
     if breed = sheep
-      [set color white]
+      [set color tar-color]
     ]
   ]
 end
@@ -310,6 +345,8 @@ to eat-sheep
   if any? prey
   [
     set feasting True
+    ;set color tar-color
+    set size size-eating
     ask prey
     [
       set energy energy - vulture-gain
@@ -339,7 +376,7 @@ end
 to user-eat  ; vulture procedure
   let prey sheep in-radius 5                    ; grab a random sheep
   if any? prey
-  [                          ; did we get one?  if so,
+  [
     ask prey
     [
       set energy energy - vulture-gain
@@ -373,6 +410,7 @@ to reset-vulture-feasting
   ask vultures
   [
     set feasting False
+    set size size-norm
   ]
 end
 
@@ -386,6 +424,7 @@ to forage
     face nearest-sheep
     set descending True
     set cohesing False
+    ;set size size-descend
     move
   ]
   [
@@ -396,11 +435,13 @@ to forage
       face nearest-neighbor
       set descending True
       set cohesing False
+      ;set size size-descend
       move
     ]
     [
       set descending False
       set cohesing True
+      set size size-norm
       wiggle
       cohese
     ]
@@ -443,11 +484,11 @@ end
 GRAPHICS-WINDOW
 370
 10
-943
-584
+880
+521
 -1
 -1
-2.811
+2.5
 1
 14
 1
@@ -468,10 +509,10 @@ ticks
 30.0
 
 BUTTON
-65
-500
-134
-533
+520
+525
+589
+558
 setup
 setup
 NIL
@@ -485,10 +526,10 @@ NIL
 1
 
 BUTTON
-210
-500
-285
-533
+665
+525
+740
+558
 go
 go
 T
@@ -780,6 +821,11 @@ false
 0
 Circle -7500403 true true 0 0 300
 Circle -16777216 true false 30 30 240
+
+circle 3
+false
+0
+Circle -955883 false false 0 0 300
 
 cow
 false

@@ -20,13 +20,14 @@
 
 globals
 [
-  xcor-tar ycor-tar reset-tar
+  random-start size-of-map size-of-patch
+  xcor-tar ycor-tar reset-tar hp-tar
   mov-speed mov-max-scale turn-angle
   visual-scale visual-dist visual-dist-food eating-dist
   cohesion-on correlation-on
   start-dist
   sep-dist well-depth well-alpha well-beta c d
-  vulture-gain
+  vulture-gain number-vultures size-descend size-eating size-norm
 ]
 breed [ sheep a-sheep ]
 breed [ vultures a-vulture ]
@@ -53,6 +54,8 @@ to setup
   clear-all
 
   ;; world settings
+  set size-of-map     100
+  set size-of-patch   2.5
   resize-world (-1 * size-of-map) size-of-map (-1 * size-of-map) size-of-map
   set-patch-size size-of-patch
 
@@ -60,9 +63,15 @@ to setup
   ask patches [ set pcolor green - 2 ]
 
   ;; global variable settings
+  set random-start     False
   set reset-tar        False
-  set start-dist       5
-  set mov-speed        1.5
+  set hp-tar           500
+  set number-vultures  10
+  set size-norm        4
+  set size-descend     3
+  set size-eating      1
+  set start-dist       30
+  set mov-speed        0.5
   set mov-max-scale    1.5
   set turn-angle       45
   set visual-scale     1.5
@@ -88,9 +97,9 @@ to setup
   ;; initialize sheep
   create-sheep 1 ;
   [
-    set shape "sheep"
+    set shape "target"
     set color white
-    set size 3  ; easier to see
+    set size size-norm
     set label-color blue - 2
     set energy hp-tar
     setxy random-xcor random-ycor
@@ -101,10 +110,9 @@ to setup
   ;; initialize vultures
   create-vultures number-vultures  ; create the vultures, then initialize their variables
   [
-    set shape "bird side"
+    set shape "airplane"
     set color black
-    set size 4  ; easier to see
-    setxy (random start-dist) (random start-dist)
+    set size size-norm
     set descending False
     set feasting False
     set nearest-wake no-turtles
@@ -113,6 +121,9 @@ to setup
     set cohesing True
     set tick-start 0
     set tick-stop 0
+    ifelse random-start = True
+      [setxy (random-xcor) (random-ycor)]
+      [setxy (random start-dist) (random start-dist)]
   ]
 
   reset-ticks
@@ -195,6 +206,8 @@ to eat-sheep  ; vulture procedure
   if any? prey
   [
     set feasting True
+    set size size-eating
+    set color white
     ask prey
     [
       set energy energy - vulture-gain
@@ -228,6 +241,7 @@ to forage
      face nearest-sheep
      set descending True
      set cohesing False
+     set size size-descend
      move
   ]
   [
@@ -238,6 +252,7 @@ to forage
     face nearest-wake
     set descending True
     set cohesing False
+    set size size-descend
     move
     ]
     [
@@ -276,6 +291,7 @@ to reset-vulture-feasting
   [
     set feasting False
     set descending False
+    set size size-norm
   ]
 end
 
@@ -295,7 +311,7 @@ end
 to wiggle
   ifelse correlation-on = True
   [
-    let my-neighbor vultures in-radius (visual-dist * 1.25)
+    let my-neighbor vultures in-radius visual-dist
     ifelse any? my-neighbor
     [
       set heading mean-heading [heading] of vultures in-radius visual-dist + random turn-angle - random turn-angle
@@ -342,10 +358,10 @@ ticks
 30.0
 
 BUTTON
-24
-86
-87
-119
+384
+533
+447
+566
 NIL
 setup
 NIL
@@ -359,10 +375,10 @@ NIL
 1
 
 BUTTON
-130
-89
-193
-122
+487
+533
+550
+566
 NIL
 go
 T
@@ -376,12 +392,12 @@ NIL
 1
 
 SLIDER
-22
-125
-194
-158
-hp-tar
-hp-tar
+16
+186
+188
+219
+hp-tar-slider
+hp-tar-slider
 1
 1000
 500.0
@@ -391,27 +407,27 @@ NIL
 HORIZONTAL
 
 SLIDER
-21
-167
-193
-200
-number-vultures
-number-vultures
+15
+228
+187
+261
+number-vultures-slider
+number-vultures-slider
 1
 10
-10.0
+7.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-27
-439
-199
-472
-size-of-map
-size-of-map
+19
+309
+191
+342
+size-of-map-slider
+size-of-map-slider
 0
 500
 100.0
@@ -421,12 +437,12 @@ NIL
 HORIZONTAL
 
 SLIDER
-27
-480
-199
-513
-size-of-patch
-size-of-patch
+19
+350
+191
+383
+size-of-patch-slider
+size-of-patch-slider
 1
 10
 2.5
@@ -436,10 +452,10 @@ NIL
 HORIZONTAL
 
 SWITCH
-22
-207
-192
-240
+16
+63
+186
+96
 cohesion?
 cohesion?
 0
@@ -447,15 +463,55 @@ cohesion?
 -1000
 
 SWITCH
-21
-244
-193
-277
+15
+100
+187
+133
 correlation?
 correlation?
-0
+1
 1
 -1000
+
+TEXTBOX
+54
+34
+204
+59
+Variables
+20
+0.0
+1
+
+TEXTBOX
+33
+149
+183
+174
+Hyper-Params
+20
+0.0
+1
+
+TEXTBOX
+46
+277
+196
+326
+Map Settings
+20
+0.0
+1
+
+TEXTBOX
+342
+21
+635
+71
+Vultures - The Simulation
+20
+0.0
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
