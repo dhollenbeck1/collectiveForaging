@@ -25,6 +25,9 @@
 
 globals
 [
+  tic-max
+  t2d-start t2d-on t2d
+  t2e-start t2e-on t2e
   size-of-map size-of-patch bkg-color
   xcor-tar ycor-tar reset-tar tar-color
   xcor-user ycor-user
@@ -45,6 +48,7 @@ turtles-own [ energy ]            ;; both vultures and sheep have energy
 vultures-own [ maybe-bite         ;; holds list of sheep the vulture can see
                nearest-sheep      ;; holds the sheep targeted by a given vulture
                descending
+               see-tar
                wake
                nearest-neighbor
                feasting
@@ -54,7 +58,14 @@ vultures-own [ maybe-bite         ;; holds list of sheep the vulture can see
                cohesing
                ratio tick-start tick-stop energy-start energy-stop
              ]
-user-own [ xcom ycom user-tick-stop user-tick-start user-ratio energy-start energy-stop]
+user-own [
+           current-heading
+           see-tar descending feasting
+           maybe-bite nearest-sheep wake nearest-neighbor
+           xcom ycom
+           user-tick-stop user-tick-start user-ratio
+           energy-start energy-stop
+         ]
 vision-boundary-own [ xcom ycom ]
 plume-own [ time conc ]
 patches-own [ countdown ]
@@ -65,16 +76,17 @@ to setup
   clear-all
 
   ;; world settings
-  set size-of-map                100
-  set size-of-patch              2.5
+  set size-of-map                75
+  set size-of-patch              3
   resize-world (-1 * size-of-map) size-of-map (-1 * size-of-map) size-of-map
   set-patch-size size-of-patch
 
   ;; Patch settings
-  set bkg-color                  grey
-  ask patches [ set pcolor grey ]
+  set bkg-color                  green - 1
+  ask patches [ set pcolor bkg-color ]
 
   ;; Global settings
+  set tic-max                    5000
   set reset-tar                  False
   set tar-color                  white
   set vulture-color              black
@@ -83,18 +95,18 @@ to setup
   set sheep-hp                   500
   set vulture-gain               1
   set vulture-num                10
-  set sep-dist                   10
+  set sep-dist                   14
   set well-depth                 1
   set well-alpha                 12
   set well-beta                  6
   set c                          1
   set d                          1
-  set visual-scale               1.5
+  set visual-scale               1
   set visual-dist-food           15
   set visual-dist                visual-dist-food * visual-scale
   set eating-dist                1
-  set mov-speed                  0.7
-  set mov-max-scale              1.5
+  set mov-speed                  1
+  set mov-max-scale              1
   set turn-angle                 45
 
   ;; Variable settings
@@ -123,6 +135,7 @@ to setup
     set size                        size-norm
     set descending                  False
     set feasting                    False
+    set see-tar                     False
     set nearest-neighbor            no-turtles
     set xcom                        0
     set ycom                        0
@@ -137,7 +150,10 @@ to setup
   create-user 1 [
     set shape                      "airplane"
     set color                       orange
-    set size                        size-norm
+    set size                        size-norm + 1
+    set descending                  False
+    set feasting                    False
+    set see-tar                     False
     set xcom                        0
     set ycom                        0
     setxy (random sep-dist) (random sep-dist)
@@ -155,11 +171,18 @@ to setup
 
   ;display-labels
   reset-ticks
+  set t2d-start                    -1
+  set t2d-on                       True
+  set t2e-start                    -1
+  set t2e-on                       False
+  set t2d                          -1
+  set t2e                          -1
 end
 
 
 ;; %%%%%%%%%%%%%%%%%%%%% PLAY %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 to go
+
   ask vultures
   [
      ifelse descending
@@ -191,21 +214,56 @@ to go
     ]
   ]
   tick
+  if ticks > tic-max
+    [stop]
   ;display-labels
 end
 
 
 ;%%%%%%%%%%%%%%%%%%%%%%% FUNCTIONS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 to user-move
-  if mouse-down?
+  user-forage
+  ifelse mouse-down? and not descending
   [
+;   let temp [heading] of self
+;   set xcor-user [xcor] of self
+;   set ycor-user [ycor] of self
    set xcom mouse-xcor
    set ycom mouse-ycor
-  ]
+;   let dist-x (xcom - xcor-user)
+;   let dist-y (ycom - ycor-user)
+;   let ang atan dist-y dist-x
+;   ifelse (ang - temp) > 90 and (ang - temp) < 180
+;    [; user chose something on right over 90
+;      set ang 90
+;      set heading (temp + ang) mod 360
+;    ]
+;    [; check if too far left, else the initial choice was correct
+;      ifelse (ang - temp) > 180 and (ang - temp) < 270
+;      [
+;        set ang 270
+;        set heading (temp + ang) mod 360
+;      ]
+;      [
+;        set heading (temp + ang) mod 360
+;      ]
+;    ]
   facexy xcom ycom
-  fd mov-speed
+  ;user-correlate  ;;need to fix hard to seperate from group
+ ]
+ [
+   if not descending
+     [user-wiggle]
+ ]
+
+ if cohesion-on and not descending
+  [user-cohese]
+ fd mov-speed
+
 end
 
+
+;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 to fog
   ask vultures [ set color bkg-color ]
   ask sheep [ set color bkg-color]
@@ -272,17 +330,64 @@ end
 
 
 ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-to wiggle  ; turtle procedure
-  let my-neighbor vultures in-radius visual-dist
-  ifelse any? my-neighbor
+to wiggle
+  ifelse correlation-on
   [
-    set heading mean-heading [heading] of vultures in-radius visual-dist + random-float turn-angle - random-float turn-angle
-    fd mov-speed
+    let my-neighbor vultures in-radius visual-dist
+    let my-user user in-radius visual-dist
+    if any? my-neighbor
+    [
+      ;let mylist [heading] of my-neighbor
+      let newheading  random-float turn-angle - random-float turn-angle
+      ;let userheading [heading] of my-user
+      ;set mylist lput userheading mylist
+      set heading mean-heading [heading] of my-neighbor
+      set heading heading + newheading
+      fd mov-speed
+    ]
   ]
   [
-    rt random turn-angle
-    lt random turn-angle
+    rt random-float turn-angle
+    lt random-float turn-angle
     fd mov-speed
+  ]
+end
+
+
+;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+to user-wiggle
+  ifelse correlation-on
+  [
+    let my-neighbor vultures in-radius visual-dist
+    let newheading  random-float turn-angle - random-float turn-angle
+    ifelse any? my-neighbor
+    [
+      ;let mylist [heading] of my-neighbor
+      set heading mean-heading [heading] of my-neighbor
+      set heading heading + newheading
+    ]
+    [
+      set heading heading + newheading
+    ]
+  ]
+  [
+    rt random-float turn-angle
+    lt random-float turn-angle
+  ]
+end
+
+;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+to user-correlate
+  if correlation-on
+  [
+    let my-neighbor vultures in-radius visual-dist
+    if any? my-neighbor
+    [
+      let mylist [heading] of my-neighbor
+      let myheading [heading] of self
+      set mylist lput myheading mylist
+      set heading mean-heading mylist
+    ]
   ]
 end
 
@@ -336,14 +441,100 @@ to cohese
 
     set heading current-heading
     ]
+
+    let userpos user in-radius visual-dist
+    ask userpos
+    [
+    set current-heading [heading] of self
+    facexy xp yp
+    let cur-rad (distancexy xp yp)
+    let F 0
+    let sigma sep-dist / (2 ^ (1 / 6))
+    if (cur-rad > 0) [
+       set F (24 * well-depth * (d * sigma ^ well-alpha / cur-rad ^ (well-alpha + 1) - c * sigma ^ well-beta / cur-rad ^ (well-beta + 1)))
+    ]
+
+    if (cur-rad <=  sep-dist)
+    [
+       ifelse (F > 0) [
+        let step ( F / well-depth ) * mov-speed
+        if ( step > 1 * mov-speed)
+        [
+          set F (-1) * mov-speed
+        ]
+      ]
+      [
+       set F ((-1) * F)
+      ]
+    ]
+
+    ifelse abs F > (mov-speed * mov-max-scale)
+    [
+      set F F * mov-speed * mov-max-scale / abs F
+      fd F
+    ]
+    [fd F]
+
+    set heading current-heading
+    ]
+end
+
+
+;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+to user-cohese
+  let xp [xcor] of self
+  let yp [ycor] of self
+
+  ;lennard-jones F = D/r^2-D^1.7/r^2.7     --spears, physicomimetics
+  let mylist vultures in-radius (visual-dist)
+  ask mylist
+    [
+    set current-heading [heading] of self
+    facexy xp yp
+    let cur-rad (distancexy xp yp)
+    let F 0
+    let sigma sep-dist / (2 ^ (1 / 6))
+    if (cur-rad > 0) [
+       set F (24 * well-depth * (d * sigma ^ well-alpha / cur-rad ^ (well-alpha + 1) - c * sigma ^ well-beta / cur-rad ^ (well-beta + 1)))
+    ]
+
+    if (cur-rad <=  sep-dist)
+    [
+       ifelse (F > 0) [
+        let step ( F / well-depth ) * mov-speed
+        if ( step > 1 * mov-speed)
+        [
+          set F (-1) * mov-speed
+        ]
+      ]
+      [
+       set F ((-1) * F)
+      ]
+    ]
+
+    ifelse abs F > (mov-speed * mov-max-scale)
+    [
+      set F F * mov-speed * mov-max-scale / abs F
+      fd F
+    ]
+    [fd F]
+
+    set heading current-heading
+    ]
 end
 
 
 ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 to eat-sheep
-  let prey sheep in-radius 5
+  let prey sheep in-radius eating-dist
   if any? prey
   [
+    if t2d-on = True
+    [
+      set t2d ticks - t2d-start
+      set t2e-start ticks
+      set t2d-on False
+    ]
     set feasting True
     ;set color tar-color
     set size size-eating
@@ -374,9 +565,15 @@ end
 
 ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 to user-eat  ; vulture procedure
-  let prey sheep in-radius 5                    ; grab a random sheep
+  let prey sheep in-radius eating-dist                    ; grab a random sheep
   if any? prey
   [
+    if t2d-on = True
+    [
+      set t2d ticks - t2d-start
+      set t2e-start ticks
+      set t2d-on False
+    ]
     ask prey
     [
       set energy energy - vulture-gain
@@ -410,8 +607,19 @@ to reset-vulture-feasting
   ask vultures
   [
     set feasting False
+    set see-tar False
     set size size-norm
   ]
+
+  ask user
+  [
+    set feasting False
+    set see-tar False
+  ]
+
+  set t2d-on True
+  set t2d-start ticks
+  set t2e ticks - t2e-start
 end
 
 
@@ -424,26 +632,65 @@ to forage
     face nearest-sheep
     set descending True
     set cohesing False
+    set see-tar True
     ;set size size-descend
     move
   ]
   [
     find-wake
-    ifelse any? nearest-neighbor
+    ifelse any? wake
     [
       find-nearest-neighbor
-      face nearest-neighbor
-      set descending True
-      set cohesing False
-      ;set size size-descend
-      move
+      ifelse [see-tar] of nearest-neighbor
+      [
+        face nearest-neighbor
+        set descending True
+        set cohesing False
+        ;set size size-descend
+        move
+      ]
+      [
+        set descending False
+        set cohesing True
+        set size size-norm
+        wiggle
+        if cohesion-on
+          [cohese]
+      ]
     ]
     [
       set descending False
       set cohesing True
       set size size-norm
       wiggle
-      cohese
+      if cohesion-on
+        [cohese]
+    ]
+  ]
+end
+
+
+;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+to user-forage
+  find-sheep
+  ifelse any? maybe-bite
+  [
+    set descending True
+    find-nearest-sheep
+    face nearest-sheep
+  ]
+  [
+    find-wake
+    ifelse any? wake
+    [
+      find-nearest-neighbor
+      ifelse [see-tar] of nearest-neighbor
+      [set descending True
+       face nearest-neighbor]
+      [set descending False]
+    ]
+    [
+      set descending False
     ]
   ]
 end
@@ -482,13 +729,13 @@ end
 ;%%%%%%%%%%%%%%%%%%%%%%%%%% END %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 @#$#@#$#@
 GRAPHICS-WINDOW
-370
-10
-880
-521
+505
+75
+966
+537
 -1
 -1
-2.5
+3.0
 1
 14
 1
@@ -498,10 +745,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--100
-100
--100
-100
+-75
+75
+-75
+75
 1
 1
 1
@@ -509,10 +756,10 @@ ticks
 30.0
 
 BUTTON
-520
-525
-589
-558
+1135
+385
+1204
+418
 setup
 setup
 NIL
@@ -526,10 +773,10 @@ NIL
 1
 
 BUTTON
-665
-525
-740
-558
+1280
+385
+1355
+418
 go
 go
 T
@@ -542,69 +789,46 @@ NIL
 NIL
 0
 
-PLOT
-40
-255
-315
-425
-populations
-time
-pop.
-0.0
-100.0
-0.0
-100.0
-true
-true
-"" ""
-PENS
-"pen-1" 1.0 0 -7500403 true "" "plot [energy] of a-vulture 1"
-"pen-2" 1.0 0 -2674135 true "" "plot [energy] of a-vulture 2"
-"pen-3" 1.0 0 -955883 true "" "plot [energy] of a-vulture 3"
-"pen-4" 1.0 0 -6459832 true "" "plot [energy] of a-vulture 4"
-"pen-5" 1.0 0 -1184463 true "" "plot [energy] of a-vulture 5"
-"pen-6" 1.0 0 -10899396 true "" "plot mean [energy] of user"
-
 MONITOR
-105
-445
-175
-490
-sheep
-count sheep
+365
+160
+432
+205
+Time Left
+(tic-max - ticks)
 3
 1
 11
 
 MONITOR
-185
-445
-252
-490
-vultures
-count vultures
+275
+160
+355
+205
+Time 2 Detect
+t2d
 3
 1
 11
 
 TEXTBOX
-505
-20
-825
-91
+525
+35
+975
+75
 Vultures - The User Experience
-20
+28
 0.0
 1
 
 PLOT
-60
-75
-305
-245
-Success
-time
-success ratio
+25
+215
+440
+385
+Performance
+Ticks
+Ticks
 0.0
 10.0
 0.0
@@ -613,18 +837,49 @@ true
 false
 "" ""
 PENS
-"energy_vultures" 1.0 0 -16777216 true "" "plot mean [ratio] of vultures"
-"pen-1" 1.0 0 -2674135 true "" "plot mean [user-ratio] of user"
+"time2detect" 1.0 0 -16777216 true "" "plot t2d"
+"time2eat" 1.0 0 -2674135 true "" "plot t2e"
 
 TEXTBOX
-130
-45
-280
-66
+40
+170
+190
+195
 Performance
 20
 0.0
 1
+
+TEXTBOX
+15
+50
+445
+120
+%%%%%%%%%%%%%%%%%%%%%%%\n                         Data Analytics\n================================\n
+18
+0.0
+0
+
+TEXTBOX
+1035
+50
+1465
+335
+%%%%%%%%%%%%%%%%%%%%%%%\n                            To Play\n================================\n* CHANGE HEADING - mouse click in search direction\n* RANDOM SEARCH - do nothing\n* FLY HERE - hold mouse click in specified area\n\n                              Rules\n================================\n* Try to find the target as many times as possible before time runs out\n* Do not touch NetLogo settings
+18
+0.0
+0
+
+MONITOR
+190
+160
+270
+205
+Time 2 eat
+t2e
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?

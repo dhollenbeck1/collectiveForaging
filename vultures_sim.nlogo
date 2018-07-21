@@ -39,7 +39,7 @@ vultures-own
   nearest-sheep                  ;; holds the sheep targeted by a given vulture
   descending
   wake
-  nearest-wake
+  nearest-vulture
   feasting
   xcom                           ;; x component
   ycom                           ;; y component
@@ -71,11 +71,11 @@ to setup
   set size-descend     3
   set size-eating      1
   set start-dist       30
-  set mov-speed        0.5
+  set mov-speed        0.75
   set mov-max-scale    1.5
-  set turn-angle       45
-  set visual-scale     1.5
-  set visual-dist-food 15
+  set turn-angle       10
+  set visual-scale     1.1
+  set visual-dist-food 13
   set visual-dist      visual-dist-food * visual-scale
   set well-depth       0.5
   set well-alpha       3
@@ -115,7 +115,7 @@ to setup
     set size size-norm
     set descending False
     set feasting False
-    set nearest-wake no-turtles
+    set nearest-vulture no-turtles
     set xcom 0
     set ycom 0
     set cohesing True
@@ -133,14 +133,11 @@ end
 to go
   ask vultures
   [
-    ifelse descending
-        [set color red]
-        [set color black]
-
     ifelse feasting = False
     [
-       forage
-       eat-sheep
+      forage
+      if descending = True
+      [eat-sheep]
     ]
     [
       find-sheep
@@ -151,6 +148,10 @@ to go
         eat-sheep
       ]
     ]
+
+    ifelse descending
+    [set color red]
+    [set color black]
   ]
   tick
 end
@@ -161,7 +162,8 @@ end
 to cohese
   ;;   lennard-jones potential
   ;;   --spears, physicomimetics
-
+if cohesion-on = True
+  [
   let xp [xcor] of self
   let yp [ycor] of self
   let mylist vultures in-radius (visual-dist)
@@ -197,6 +199,7 @@ to cohese
     [fd F]
 
   set heading current-heading
+  ]
   ]
 end
 
@@ -234,33 +237,32 @@ end
 
 
 to forage
+  ; check for sheep, then check for vultures, else randomly move
+
   find-sheep
   ifelse any? available-sheep
   [
     find-nearest-sheep
-     face nearest-sheep
-     set descending True
-     set cohesing False
-     set size size-descend
-     move
+    face nearest-sheep
+    move
+    set descending    True
+    set cohesing      False
   ]
   [
     find-wake
     ifelse any? wake
     [
-    find-nearest-wake
-    face nearest-wake
-    set descending True
-    set cohesing False
-    set size size-descend
+    find-nearest-vulture
+    face nearest-vulture
     move
+    set descending    True
+    set cohesing      False
     ]
     [
-    set descending False
-    set cohesing True
+    set descending    False
+    set cohesing      True
     wiggle
-    if cohesion-on = True
-      [cohese]
+    cohese
     ]
   ]
 end
@@ -281,8 +283,8 @@ to find-wake  ;; vulture procedure
 end
 
 
-to find-nearest-wake ;; vulture procedure
-  set nearest-wake min-one-of wake [distance myself]
+to find-nearest-vulture ;; vulture procedure
+  set nearest-vulture min-one-of wake [distance myself]
 end
 
 
@@ -322,7 +324,7 @@ to wiggle
       lt random turn-angle
       fd mov-speed
     ]
-    ]
+  ]
   [
     rt random turn-angle
     lt random turn-angle
@@ -469,7 +471,7 @@ SWITCH
 133
 correlation?
 correlation?
-1
+0
 1
 -1000
 
