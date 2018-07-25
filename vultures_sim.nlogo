@@ -20,8 +20,11 @@
 
 globals
 [
+  tic-max
+  t2d-start t2d-on t2d
+  t2e-start t2e
   random-start size-of-map size-of-patch
-  xcor-tar ycor-tar reset-tar hp-tar
+  xcor-tar ycor-tar reset-tar hp-tar tar-count
   mov-speed mov-max-scale turn-angle
   visual-scale visual-dist visual-dist-food eating-dist
   cohesion-on correlation-on
@@ -35,6 +38,7 @@ breed [ user a-user ]
 turtles-own [ energy ]
 vultures-own
 [
+  see-tar
   available-sheep                     ;; holds list of sheep the vulture can see
   nearest-sheep                  ;; holds the sheep targeted by a given vulture
   descending
@@ -63,6 +67,8 @@ to setup
   ask patches [ set pcolor green - 2 ]
 
   ;; global variable settings
+  set tar-count        0
+  set tic-max          5000
   set random-start     False
   set reset-tar        False
   set hp-tar           500
@@ -73,9 +79,9 @@ to setup
   set start-dist       30
   set mov-speed        0.75
   set mov-max-scale    1.5
-  set turn-angle       10
-  set visual-scale     1.1
-  set visual-dist-food 13
+  set turn-angle       45
+  set visual-scale     1.5
+  set visual-dist-food 15
   set visual-dist      visual-dist-food * visual-scale
   set well-depth       0.5
   set well-alpha       3
@@ -97,11 +103,11 @@ to setup
   ;; initialize sheep
   create-sheep 1 ;
   [
-    set shape "target"
-    set color white
-    set size size-norm
-    set label-color blue - 2
-    set energy hp-tar
+    set shape                    "target"
+    set color                    white
+    set size                     size-norm
+    set label-color              blue - 2
+    set energy                   hp-tar
     setxy random-xcor random-ycor
     set xcor-tar [xcor] of self
     set ycor-tar [ycor] of self
@@ -110,23 +116,29 @@ to setup
   ;; initialize vultures
   create-vultures number-vultures  ; create the vultures, then initialize their variables
   [
-    set shape "airplane"
-    set color black
-    set size size-norm
-    set descending False
-    set feasting False
-    set nearest-vulture no-turtles
-    set xcom 0
-    set ycom 0
-    set cohesing True
-    set tick-start 0
-    set tick-stop 0
+    set shape                    "airplane"
+    set color                    black
+    set size                     size-norm
+    set descending               False
+    set feasting                 False
+    set nearest-vulture          no-turtles
+    set xcom                     0
+    set ycom                     0
+    set cohesing                 True
+    set tick-start               0
+    set tick-stop                0
+    set see-tar                  false
     ifelse random-start = True
       [setxy (random-xcor) (random-ycor)]
       [setxy (random start-dist) (random start-dist)]
   ]
 
   reset-ticks
+  set t2d-start             -1
+  set t2d-on                True
+  set t2e-start             -1
+  set t2d                   -1
+  set t2e                   -1
 end
 
 ;; %%%%%%%%%%%%%%%%%%%%% PLAY %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -148,12 +160,13 @@ to go
         eat-sheep
       ]
     ]
-
     ifelse descending
     [set color red]
     [set color black]
   ]
   tick
+  if ticks > tic-max
+    [stop]
 end
 
 ;; %%%%%%%%%%%%%%%%%%%%% FUNCTIONS %%%%%%%%%%%%%%%%%%%%%%%%%
@@ -208,6 +221,13 @@ to eat-sheep  ; vulture procedure
   let prey sheep in-radius eating-dist
   if any? prey
   [
+    if t2d-on = True
+    [
+      set t2d ticks - t2d-start
+      set t2e-start ticks
+      set t2d-on False
+      set tar-count tar-count + 1
+    ]
     set feasting True
     set size size-eating
     set color white
@@ -247,16 +267,27 @@ to forage
     move
     set descending    True
     set cohesing      False
+    set see-tar       True
   ]
   [
     find-wake
     ifelse any? wake
     [
     find-nearest-vulture
-    face nearest-vulture
-    move
-    set descending    True
-    set cohesing      False
+      ifelse [see-tar] of nearest-vulture
+      [
+        face nearest-vulture
+        move
+        set descending    True
+        set cohesing      False
+      ]
+      [
+        set descending    False
+        set cohesing      True
+        wiggle
+        cohese
+      ]
+
     ]
     [
     set descending    False
@@ -293,8 +324,13 @@ to reset-vulture-feasting
   [
     set feasting False
     set descending False
+    set see-tar false
     set size size-norm
   ]
+
+  set t2d-on True
+  set t2d-start ticks
+  set t2e ticks - t2e-start
 end
 
 
@@ -316,7 +352,8 @@ to wiggle
     let my-neighbor vultures in-radius visual-dist
     ifelse any? my-neighbor
     [
-      set heading mean-heading [heading] of vultures in-radius visual-dist + random turn-angle - random turn-angle
+      set heading mean-heading [heading] of my-neighbor
+      set heading heading  + random turn-angle - random turn-angle
       fd mov-speed
     ]
     [
@@ -514,6 +551,69 @@ Vultures - The Simulation
 20
 0.0
 1
+
+MONITOR
+777
+19
+876
+64
+Time 2 detect
+t2d
+17
+1
+11
+
+MONITOR
+882
+18
+979
+63
+Time 2 eat
+t2e
+17
+1
+11
+
+MONITOR
+1086
+20
+1180
+65
+TIme left
+tic-max - ticks
+17
+1
+11
+
+MONITOR
+984
+18
+1078
+63
+Targets Found
+tar-count
+17
+1
+11
+
+PLOT
+779
+75
+1182
+277
+Performance 
+Ticks
+Ticks
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"Time2Detect" 1.0 0 -16777216 true "" "plot t2d"
+"Time2Eat" 1.0 0 -2674135 true "" "plot t2e"
 
 @#$#@#$#@
 ## WHAT IS IT?

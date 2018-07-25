@@ -29,7 +29,7 @@ globals
   t2d-start t2d-on t2d
   t2e-start t2e-on t2e
   size-of-map size-of-patch bkg-color
-  xcor-tar ycor-tar reset-tar tar-color
+  xcor-tar ycor-tar reset-tar tar-color tar-count
   xcor-user ycor-user
   sheep-hp
   sep-dist well-depth well-alpha well-beta c d
@@ -82,10 +82,11 @@ to setup
   set-patch-size size-of-patch
 
   ;; Patch settings
-  set bkg-color                  green - 1
+  set bkg-color                  green - 2
   ask patches [ set pcolor bkg-color ]
 
   ;; Global settings
+  set tar-count                  0
   set tic-max                    5000
   set reset-tar                  False
   set tar-color                  white
@@ -95,17 +96,17 @@ to setup
   set sheep-hp                   500
   set vulture-gain               1
   set vulture-num                10
-  set sep-dist                   14
+  set sep-dist                   15
   set well-depth                 1
   set well-alpha                 12
   set well-beta                  6
   set c                          1
   set d                          1
-  set visual-scale               1
+  set visual-scale               1.5
   set visual-dist-food           15
   set visual-dist                visual-dist-food * visual-scale
   set eating-dist                1
-  set mov-speed                  1
+  set mov-speed                  0.8
   set mov-max-scale              1
   set turn-angle                 45
 
@@ -165,7 +166,7 @@ to setup
   create-vision-boundary 1 [
    set shape                      "circle 3"
    set color                       orange
-   set size                        visual-dist * size-of-patch * 0.9
+   set size                        visual-dist * size-of-patch * 0.8
    setxy xcor-user ycor-user
   ]
 
@@ -534,6 +535,7 @@ to eat-sheep
       set t2d ticks - t2d-start
       set t2e-start ticks
       set t2d-on False
+      set tar-count tar-count + 1
     ]
     set feasting True
     ;set color tar-color
@@ -573,6 +575,7 @@ to user-eat  ; vulture procedure
       set t2d ticks - t2d-start
       set t2e-start ticks
       set t2d-on False
+      set tar-count tar-count + 1
     ]
     ask prey
     [
@@ -790,9 +793,9 @@ NIL
 0
 
 MONITOR
-365
+130
 160
-432
+230
 205
 Time Left
 (tic-max - ticks)
@@ -801,9 +804,9 @@ Time Left
 11
 
 MONITOR
-275
+340
 160
-355
+440
 205
 Time 2 Detect
 t2d
@@ -841,16 +844,6 @@ PENS
 "time2eat" 1.0 0 -2674135 true "" "plot t2e"
 
 TEXTBOX
-40
-170
-190
-195
-Performance
-20
-0.0
-1
-
-TEXTBOX
 15
 50
 445
@@ -871,12 +864,23 @@ TEXTBOX
 0
 
 MONITOR
-190
+235
 160
-270
+335
 205
 Time 2 eat
 t2e
+17
+1
+11
+
+MONITOR
+25
+160
+125
+205
+Target Count
+tar-count
 17
 1
 11
