@@ -114,7 +114,7 @@ to setup
   ]
 
   ;; initialize vultures
-  create-vultures number-vultures  ; create the vultures, then initialize their variables
+  create-vultures number-vultures-slider  ; create the vultures, then initialize their variables
   [
     set shape                    "airplane"
     set color                    black
@@ -453,8 +453,8 @@ SLIDER
 number-vultures-slider
 number-vultures-slider
 1
-10
-7.0
+100
+100.0
 1
 1
 NIL
@@ -967,6 +967,31 @@ NetLogo 6.0.2
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
+<experiments>
+  <experiment name="experiment" repetitions="1" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>t2d</metric>
+    <metric>t2e</metric>
+    <metric>tar-count</metric>
+    <enumeratedValueSet variable="correlation?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="cohesion?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="number-vultures-slider" first="0" step="1" last="10"/>
+    <enumeratedValueSet variable="size-of-patch-slider">
+      <value value="2.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="size-of-map-slider">
+      <value value="100"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="hp-tar-slider">
+      <value value="500"/>
+    </enumeratedValueSet>
+  </experiment>
+</experiments>
 @#$#@#$#@
 @#$#@#$#@
 default

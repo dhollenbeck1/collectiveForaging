@@ -25,9 +25,10 @@
 
 globals
 [
+  tic-int-count tic-eat-count user-eat-count
   tic-max
-  t2d-start t2d-on t2d
-  t2e-start t2e-on t2e
+  t2d-start t2d-on t2d user-t2d-start user-t2d-on user-t2d avg-t2d user-avg-t2d
+  t2e-start t2e-on t2e user-t2e-start user-t2e-on user-t2e avg-t2e user-avg-t2e
   size-of-map size-of-patch bkg-color
   xcor-tar ycor-tar reset-tar tar-color tar-count
   xcor-user ycor-user
@@ -76,8 +77,8 @@ to setup
   clear-all
 
   ;; world settings
-  set size-of-map                75
-  set size-of-patch              3
+  set size-of-map                100
+  set size-of-patch              2.5
   resize-world (-1 * size-of-map) size-of-map (-1 * size-of-map) size-of-map
   set-patch-size size-of-patch
 
@@ -86,8 +87,11 @@ to setup
   ask patches [ set pcolor bkg-color ]
 
   ;; Global settings
+  set user-eat-count             0
+  set tic-int-count              0
+  set tic-eat-count              0
   set tar-count                  0
-  set tic-max                    5000
+  set tic-max                    15000
   set reset-tar                  False
   set tar-color                  white
   set vulture-color              black
@@ -97,7 +101,7 @@ to setup
   set vulture-gain               1
   set vulture-num                10
   set sep-dist                   15
-  set well-depth                 1
+  set well-depth                 0.1
   set well-alpha                 12
   set well-beta                  6
   set c                          1
@@ -112,8 +116,8 @@ to setup
 
   ;; Variable settings
   set users-on                   True
-  set cohesion-on                True
-  set correlation-on             True
+  set cohesion-on                true
+  set correlation-on             false
 
   ;; initialize sheep
   create-sheep 1 ; create the sheep, then initialize their variables
@@ -172,12 +176,22 @@ to setup
 
   ;display-labels
   reset-ticks
-  set t2d-start                    -1
+  set t2d-start                    0
   set t2d-on                       True
-  set t2e-start                    -1
+  set t2e-start                    0
   set t2e-on                       False
-  set t2d                          -1
-  set t2e                          -1
+  set t2d                          0
+  set t2e                          0
+  set user-t2d-start               0
+  set user-t2d-on                  True
+  set user-t2d                     0
+  set user-t2e-start               0
+  set user-t2e-on                  False
+  set user-t2e                     0
+  set avg-t2d                      0
+  set avg-t2e                      0
+  set user-avg-t2d                 0
+  set user-avg-t2e                 0
 end
 
 
@@ -214,6 +228,7 @@ to go
       update-vision-boundary
     ]
   ]
+
   tick
   if ticks > tic-max
     [stop]
@@ -226,6 +241,7 @@ to user-move
   user-forage
   ifelse mouse-down? and not descending
   [
+    set tic-int-count tic-int-count + 1
 ;   let temp [heading] of self
 ;   set xcor-user [xcor] of self
 ;   set ycor-user [ycor] of self
@@ -536,6 +552,9 @@ to eat-sheep
       set t2e-start ticks
       set t2d-on False
       set tar-count tar-count + 1
+      ifelse tar-count = 1
+      [ set avg-t2d t2d ]
+      [ set avg-t2d (avg-t2d + t2d) / 2]
     ]
     set feasting True
     ;set color tar-color
@@ -570,6 +589,14 @@ to user-eat  ; vulture procedure
   let prey sheep in-radius eating-dist                    ; grab a random sheep
   if any? prey
   [
+    if feasting = false
+    [
+     set user-eat-count user-eat-count + 1
+    ]
+
+    set feasting true
+    set tic-eat-count tic-eat-count + 1
+
     if t2d-on = True
     [
       set t2d ticks - t2d-start
@@ -577,6 +604,17 @@ to user-eat  ; vulture procedure
       set t2d-on False
       set tar-count tar-count + 1
     ]
+
+    if user-t2d-on = True
+    [
+      set user-t2d ticks - user-t2d-start
+      set user-t2e-start ticks
+      set user-t2d-on False
+      ifelse user-eat-count = 1
+      [set user-avg-t2d user-t2d]
+      [set user-avg-t2d (user-avg-t2d + user-t2d) / 2]
+    ]
+
     ask prey
     [
       set energy energy - vulture-gain
@@ -616,6 +654,13 @@ to reset-vulture-feasting
 
   ask user
   [
+    if feasting = true
+    [
+      set user-t2e ticks - user-t2e-start
+      ifelse user-eat-count = 1
+      [ set user-avg-t2e user-t2e]
+      [ set user-avg-t2e (user-avg-t2e + user-t2e) / 2]
+    ]
     set feasting False
     set see-tar False
   ]
@@ -623,6 +668,13 @@ to reset-vulture-feasting
   set t2d-on True
   set t2d-start ticks
   set t2e ticks - t2e-start
+  ifelse tar-count = 1
+  [ set avg-t2e t2e]
+  [ set avg-t2e (avg-t2e + t2e) / 2]
+
+   set user-t2d-on True
+   set user-t2d-start ticks
+
 end
 
 
@@ -732,13 +784,13 @@ end
 ;%%%%%%%%%%%%%%%%%%%%%%%%%% END %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 @#$#@#$#@
 GRAPHICS-WINDOW
-505
-75
-966
-537
+500
+50
+1010
+561
 -1
 -1
-3.0
+2.5
 1
 14
 1
@@ -748,10 +800,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--75
-75
--75
-75
+-100
+100
+-100
+100
 1
 1
 1
@@ -759,10 +811,10 @@ ticks
 30.0
 
 BUTTON
-1135
-385
-1204
-418
+1200
+355
+1269
+388
 setup
 setup
 NIL
@@ -776,10 +828,10 @@ NIL
 1
 
 BUTTON
-1280
-385
-1355
-418
+680
+515
+755
+548
 go
 go
 T
@@ -793,10 +845,10 @@ NIL
 0
 
 MONITOR
-130
-160
-230
-205
+155
+190
+255
+235
 Time Left
 (tic-max - ticks)
 3
@@ -804,10 +856,10 @@ Time Left
 11
 
 MONITOR
-340
-160
-440
-205
+365
+190
+465
+235
 Time 2 Detect
 t2d
 3
@@ -815,20 +867,20 @@ t2d
 11
 
 TEXTBOX
-525
-35
-975
-75
+520
+10
+970
+50
 Vultures - The User Experience
 28
 0.0
 1
 
 PLOT
-25
-215
-440
-385
+50
+245
+465
+415
 Performance
 Ticks
 Ticks
@@ -837,17 +889,19 @@ Ticks
 0.0
 10.0
 true
-false
+true
 "" ""
 PENS
-"time2detect" 1.0 0 -16777216 true "" "plot t2d"
-"time2eat" 1.0 0 -2674135 true "" "plot t2e"
+"time2detect" 1.0 0 -16777216 true "" "plot avg-t2d"
+"time2eat" 1.0 0 -7500403 true "" "plot avg-t2e"
+"User t2d" 1.0 0 -11085214 true "" "plot user-avg-t2d"
+"User t2e" 1.0 0 -4699768 true "" "plot user-avg-t2e"
 
 TEXTBOX
-15
-50
-445
-120
+40
+65
+470
+135
 %%%%%%%%%%%%%%%%%%%%%%%\n                         Data Analytics\n================================\n
 18
 0.0
@@ -864,10 +918,10 @@ TEXTBOX
 0
 
 MONITOR
+260
+190
+360
 235
-160
-335
-205
 Time 2 eat
 t2e
 17
@@ -875,13 +929,57 @@ t2e
 11
 
 MONITOR
-25
-160
-125
-205
+50
+190
+150
+235
 Target Count
 tar-count
 17
+1
+11
+
+MONITOR
+60
+485
+182
+530
+User participation %
+(tic-int-count) * 100 / (tic-max)
+2
+1
+11
+
+MONITOR
+55
+435
+167
+480
+User Target Count
+user-eat-count
+0
+1
+11
+
+MONITOR
+180
+435
+277
+480
+User Time 2 eat
+user-t2e
+2
+1
+11
+
+MONITOR
+285
+435
+402
+480
+User Time 2 detect
+user-t2d
+2
 1
 11
 
