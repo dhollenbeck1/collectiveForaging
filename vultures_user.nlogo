@@ -121,7 +121,7 @@ to setup
   ;; Variable settings
   set users-on                   True
   set cohesion-on                false
-  set correlation-on             true
+  set correlation-on             false
 
   ;; initialize sheep
   create-sheep 1 ; create the sheep, then initialize their variables
