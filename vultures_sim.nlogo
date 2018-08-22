@@ -79,16 +79,16 @@ to setup
   set start-dist       30
   set mov-speed        0.75
   set mov-max-scale    1.5
-  set turn-angle       45
+  set turn-angle       60
   set visual-scale     1.5
   set visual-dist-food 15
   set visual-dist      visual-dist-food * visual-scale
-  set well-depth       0.5
+  set well-depth       0.1
   set well-alpha       3
-  set well-beta        1.5
-  set c                1
-  set d                2
-  set sep-dist         15
+  set well-beta        1.25
+  set c                2
+  set d                3.5
+  set sep-dist         visual-dist-food
   set vulture-gain     1
   set eating-dist      1
 
@@ -454,7 +454,7 @@ number-vultures-slider
 number-vultures-slider
 1
 100
-100.0
+10.0
 1
 1
 NIL

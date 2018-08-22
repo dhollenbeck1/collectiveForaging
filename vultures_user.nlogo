@@ -25,6 +25,7 @@
 
 globals
 [
+  group-eff user-eff eff-scale avg-eff user-avg-eff tot-eff tot-user-eff
   tic-int-count tic-eat-count user-eat-count
   tic-max
   t2d-start t2d-on t2d user-t2d-start user-t2d-on user-t2d avg-t2d user-avg-t2d
@@ -87,11 +88,12 @@ to setup
   ask patches [ set pcolor bkg-color ]
 
   ;; Global settings
+  set eff-scale                  1000
   set user-eat-count             0
   set tic-int-count              0
   set tic-eat-count              0
   set tar-count                  0
-  set tic-max                    15000
+  set tic-max                    20000
   set reset-tar                  False
   set tar-color                  white
   set vulture-color              black
@@ -100,14 +102,16 @@ to setup
   set sheep-hp                   500
   set vulture-gain               1
   set vulture-num                10
+
   set sep-dist                   15
   set well-depth                 0.1
-  set well-alpha                 12
-  set well-beta                  6
-  set c                          1
-  set d                          1
+  set well-alpha                 3
+  set well-beta                  1.25
+  set c                          2
+  set d                          4
+
   set visual-scale               1.5
-  set visual-dist-food           15
+  set visual-dist-food           sep-dist
   set visual-dist                visual-dist-food * visual-scale
   set eating-dist                1
   set mov-speed                  0.8
@@ -117,7 +121,7 @@ to setup
   ;; Variable settings
   set users-on                   True
   set cohesion-on                true
-  set correlation-on             false
+  set correlation-on             true
 
   ;; initialize sheep
   create-sheep 1 ; create the sheep, then initialize their variables
@@ -176,6 +180,10 @@ to setup
 
   ;display-labels
   reset-ticks
+  set group-eff                    0
+  set user-eff                     0
+  set avg-eff                      0
+  set user-avg-eff                 0
   set t2d-start                    0
   set t2d-on                       True
   set t2e-start                    0
@@ -188,10 +196,10 @@ to setup
   set user-t2e-start               0
   set user-t2e-on                  False
   set user-t2e                     0
-  set avg-t2d                      0
-  set avg-t2e                      0
-  set user-avg-t2d                 0
-  set user-avg-t2e                 0
+  set avg-t2d                      100
+  set avg-t2e                      100
+  set user-avg-t2d                 100
+  set user-avg-t2e                 100
 end
 
 
@@ -227,6 +235,23 @@ to go
       user-eat
       update-vision-boundary
     ]
+  ]
+
+  set group-eff (1 / (avg-t2d * avg-t2e) )
+  set user-eff (1 / (user-avg-t2d * user-avg-t2e) )
+
+  ifelse ticks > 1
+  [
+    set tot-eff tot-eff + group-eff
+    set tot-user-eff tot-user-eff + user-eff
+    set avg-eff tot-eff / 2
+    set user-avg-eff tot-user-eff / 2
+  ]
+  [
+   set tot-eff group-eff
+   set avg-eff group-eff
+   set tot-user-eff user-eff
+   set user-avg-eff user-eff
   ]
 
   tick
@@ -784,10 +809,10 @@ end
 ;%%%%%%%%%%%%%%%%%%%%%%%%%% END %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 @#$#@#$#@
 GRAPHICS-WINDOW
-500
-50
-1010
-561
+490
+55
+1000
+566
 -1
 -1
 2.5
@@ -811,10 +836,10 @@ ticks
 30.0
 
 BUTTON
-1200
-355
-1269
-388
+1140
+430
+1209
+463
 setup
 setup
 NIL
@@ -828,10 +853,10 @@ NIL
 1
 
 BUTTON
-680
-515
-755
-548
+1225
+430
+1300
+463
 go
 go
 T
@@ -940,21 +965,21 @@ tar-count
 11
 
 MONITOR
-60
-485
-182
-530
-User participation %
+165
+140
+250
+185
+Participation %
 (tic-int-count) * 100 / (tic-max)
 2
 1
 11
 
 MONITOR
-55
-435
-167
-480
+50
+140
+155
+185
 User Target Count
 user-eat-count
 0
@@ -962,10 +987,10 @@ user-eat-count
 11
 
 MONITOR
-180
-435
-277
-480
+255
+140
+352
+185
 User Time 2 eat
 user-t2e
 2
@@ -973,15 +998,36 @@ user-t2e
 11
 
 MONITOR
-285
-435
-402
-480
+357
+140
+462
+185
 User Time 2 detect
 user-t2d
 2
 1
 11
+
+PLOT
+50
+420
+465
+570
+Efficiency
+Ticks
+Efficiency
+0.0
+10.0
+0.0
+0.25
+true
+true
+"" ""
+PENS
+"Group" 1.0 0 -2674135 true "" "plot group-eff"
+"User" 1.0 0 -7500403 true "" "plot user-eff"
+"Group avg" 1.0 0 -955883 true "" "plot avg-eff"
+"User avg" 1.0 0 -6459832 true "" "plot user-avg-eff"
 
 @#$#@#$#@
 ##                     Vultures - ver2
