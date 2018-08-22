@@ -120,7 +120,7 @@ to setup
 
   ;; Variable settings
   set users-on                   True
-  set cohesion-on                true
+  set cohesion-on                false
   set correlation-on             true
 
   ;; initialize sheep
@@ -1370,7 +1370,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.0.2
+NetLogo 6.0.4
 @#$#@#$#@
 set model-version "sheep-wolves-grass"
 set show-energy? false
@@ -1548,6 +1548,14 @@ repeat 75 [ go ]
     <enumeratedValueSet variable="vulture-gain-from-food">
       <value value="1"/>
     </enumeratedValueSet>
+  </experiment>
+  <experiment name="experiment" repetitions="100" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>avg-t2e</metric>
+    <metric>avg-t2d</metric>
+    <metric>(tic-int-count) * 100 / (tic-max)</metric>
+    <metric>tar-count</metric>
   </experiment>
 </experiments>
 @#$#@#$#@
