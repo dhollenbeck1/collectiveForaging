@@ -20,6 +20,7 @@
 
 globals
 [
+  turn-weight
   tic-max
   t2d-start t2d-on t2d
   t2e-start t2e
@@ -67,6 +68,7 @@ to setup
   ask patches [ set pcolor green - 2 ]
 
   ;; global variable settings
+  set turn-weight      -1     ; 0 < weight <= 1, use -1 for weight by number of neighbors
   set tar-count        0
   set tic-max          5000
   set random-start     False
@@ -76,10 +78,10 @@ to setup
   set size-norm        4
   set size-descend     3
   set size-eating      1
-  set start-dist       30
+  set start-dist       50
   set mov-speed        0.75
   set mov-max-scale    1.5
-  set turn-angle       60
+  set turn-angle       180
   set visual-scale     1.5
   set visual-dist-food 15
   set visual-dist      visual-dist-food * visual-scale
@@ -104,7 +106,7 @@ to setup
   create-sheep 1 ;
   [
     set shape                    "target"
-    set color                    white
+    set color                    red
     set size                     size-norm
     set label-color              blue - 2
     set energy                   hp-tar
@@ -352,8 +354,21 @@ to wiggle
     let my-neighbor vultures in-radius visual-dist
     ifelse any? my-neighbor
     [
-      set heading mean-heading [heading] of my-neighbor
-      set heading heading  + random turn-angle - random turn-angle
+      let num-neighbors count my-neighbor
+      let mean-neighbor-heading mean-heading [heading] of my-neighbor
+      ifelse turn-weight = -1
+      [
+       let newheading heading + random turn-angle - random turn-angle
+       let y-turn (cos newheading) / (num-neighbors + 1) + (cos mean-neighbor-heading) * num-neighbors / (num-neighbors + 1)
+       let x-turn (sin newheading) / (num-neighbors + 1) + (sin mean-neighbor-heading) * num-neighbors / (num-neighbors + 1)
+       set heading atan x-turn y-turn
+      ]
+      [
+       let newheading heading + random turn-angle - random turn-angle
+       let y-turn (cos newheading) * turn-weight + (cos mean-neighbor-heading) * (1 - turn-weight)
+       let x-turn (sin newheading) * turn-weight + (sin mean-neighbor-heading) * (1 - turn-weight)
+       set heading atan x-turn y-turn
+      ]
       fd mov-speed
     ]
     [
@@ -397,10 +412,10 @@ ticks
 30.0
 
 BUTTON
-384
-533
-447
-566
+379
+534
+442
+567
 NIL
 setup
 NIL
@@ -497,7 +512,7 @@ SWITCH
 96
 cohesion?
 cohesion?
-0
+1
 1
 -1000
 
@@ -508,7 +523,7 @@ SWITCH
 133
 correlation?
 correlation?
-0
+1
 1
 -1000
 

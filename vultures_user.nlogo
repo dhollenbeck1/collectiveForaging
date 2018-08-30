@@ -24,7 +24,7 @@
 
 
 globals
-[
+[ turn-weight
   group-eff user-eff eff-scale avg-eff user-avg-eff tot-eff tot-user-eff
   tic-int-count tic-eat-count user-eat-count
   tic-max
@@ -88,6 +88,7 @@ to setup
   ask patches [ set pcolor bkg-color ]
 
   ;; Global settings
+  set turn-weight                -1
   set eff-scale                  1000
   set user-eat-count             0
   set tic-int-count              0
@@ -116,11 +117,11 @@ to setup
   set eating-dist                1
   set mov-speed                  0.8
   set mov-max-scale              1
-  set turn-angle                 45
+  set turn-angle                 180
 
   ;; Variable settings
   set users-on                   True
-  set cohesion-on                false
+  set cohesion-on                true
   set correlation-on             true
 
   ;; initialize sheep
@@ -379,12 +380,40 @@ to wiggle
     let my-user user in-radius visual-dist
     if any? my-neighbor
     [
-      ;let mylist [heading] of my-neighbor
+      let num-neighbors count my-neighbor
+      let num-user count my-user
       let newheading  random-float turn-angle - random-float turn-angle
-      ;let userheading [heading] of my-user
-      ;set mylist lput userheading mylist
-      set heading mean-heading [heading] of my-neighbor
-      set heading heading + newheading
+      let mean-neighbor-heading mean-heading [heading] of my-neighbor
+
+      ifelse turn-weight = -1
+      [
+        ifelse num-user = 0
+        [
+          let y-turn (cos newheading) / (num-neighbors + 1) + (cos mean-neighbor-heading) * num-neighbors / (num-neighbors + 1)
+          let x-turn (sin newheading) / (num-neighbors + 1) + (sin mean-neighbor-heading) * num-neighbors / (num-neighbors + 1)
+          set heading atan x-turn y-turn
+        ]
+        [
+          let user-heading one-of [heading] of my-user
+          let y-turn (cos newheading + cos user-heading) / (num-neighbors + 2) + (cos mean-neighbor-heading) * num-neighbors / (num-neighbors + 2)
+          let x-turn (sin newheading + sin user-heading) / (num-neighbors + 2) + (sin mean-neighbor-heading) * num-neighbors / (num-neighbors + 2)
+          set heading atan x-turn y-turn
+        ]
+      ]
+      [
+        ifelse num-user = 0
+        [
+          let y-turn (cos newheading) * turn-weight + (cos mean-neighbor-heading) * (1 - turn-weight)
+          let x-turn (sin newheading) * turn-weight + (sin mean-neighbor-heading) * (1 - turn-weight)
+          set heading atan x-turn y-turn
+        ]
+        [
+          let user-heading one-of [heading] of my-user
+          let y-turn (cos newheading ) * turn-weight + (cos mean-neighbor-heading + cos user-heading) * (1 - turn-weight)
+          let x-turn (sin newheading ) * turn-weight + (sin mean-neighbor-heading + sin user-heading) * (1 - turn-weight)
+          set heading atan x-turn y-turn
+        ]
+      ]
       fd mov-speed
     ]
   ]
@@ -810,9 +839,9 @@ end
 @#$#@#$#@
 GRAPHICS-WINDOW
 490
-55
+35
 1000
-566
+546
 -1
 -1
 2.5
@@ -1370,7 +1399,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.0.4
+NetLogo 6.0.2
 @#$#@#$#@
 set model-version "sheep-wolves-grass"
 set show-energy? false
