@@ -88,7 +88,7 @@ to setup
   ask patches [ set pcolor bkg-color ]
 
   ;; Global settings
-  set turn-weight                -1
+  set turn-weight                0.6
   set eff-scale                  1000
   set user-eat-count             0
   set tic-int-count              0
@@ -102,7 +102,7 @@ to setup
   set size-norm                  4
   set sheep-hp                   500
   set vulture-gain               1
-  set vulture-num                10
+  set vulture-num                9
 
   set sep-dist                   15
   set well-depth                 0.1
@@ -433,9 +433,19 @@ to user-wiggle
     let newheading  random-float turn-angle - random-float turn-angle
     ifelse any? my-neighbor
     [
-      ;let mylist [heading] of my-neighbor
-      set heading mean-heading [heading] of my-neighbor
-      set heading heading + newheading
+      let num-neighbors count my-neighbor
+      let mean-neighbor-heading mean-heading [heading] of my-neighbor
+      ifelse turn-weight = -1
+      [
+        let y-turn (cos newheading) / (num-neighbors + 1) + (cos mean-neighbor-heading) * num-neighbors / (num-neighbors + 1)
+        let x-turn (sin newheading) / (num-neighbors + 1) + (sin mean-neighbor-heading) * num-neighbors / (num-neighbors + 1)
+        set heading atan x-turn y-turn
+      ]
+      [
+        let y-turn (cos newheading) * turn-weight + (cos mean-neighbor-heading) * (1 - turn-weight)
+        let x-turn (sin newheading) * turn-weight + (sin mean-neighbor-heading) * (1 - turn-weight)
+        set heading atan x-turn y-turn
+      ]
     ]
     [
       set heading heading + newheading
@@ -1399,7 +1409,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.0.2
+NetLogo 6.0.4
 @#$#@#$#@
 set model-version "sheep-wolves-grass"
 set show-energy? false
