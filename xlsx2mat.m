@@ -5,7 +5,7 @@
 % 3. run script
 
 ang = 45;
-coh = 0;
+coh = 1;
 cor = 1;
 
 avg_t2e = VarName3;

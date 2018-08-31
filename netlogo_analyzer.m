@@ -33,7 +33,7 @@ switch analysisType
                     % create hist
                     [counts,centers] = hist(avg_t2e,nbins);
 %                     counts = counts./((centers(2)-centers(1))*sum(counts));
-                    plot(centers,counts);    
+                    plot(centers,counts,'LineWidth',2);    
                                      
                 end
             end
@@ -55,7 +55,7 @@ switch analysisType
                     % create hist
                     [counts,centers] = hist(avg_t2d,nbins);
 %                     counts = counts./((centers(2)-centers(1))*sum(counts));
-                    plot(centers,counts);    
+                    plot(centers,counts,'LineWidth',2);    
                                      
                 end
             end
@@ -77,7 +77,7 @@ switch analysisType
                     % create hist
                     [counts,centers] = hist(tar,nbins);
 %                     counts = counts./((centers(2)-centers(1))*sum(counts));
-                    plot(centers,counts);    
+                    plot(centers,counts,'LineWidth',2);    
                                      
                 end
             end
@@ -97,10 +97,10 @@ switch analysisType
                     fn = ['angle_',num2str(angle(k)),'_coh_',num2str(j-1),'_cor_',num2str(i-1)];
                     load(fn)                   
                     % create hist
-                    eff = 1./(avg_t2e.*avg_t2d);
+                    eff = tar./(avg_t2e.*avg_t2d);
                     [counts,centers] = hist(eff,nbins);
 %                     counts = counts./((centers(2)-centers(1))*sum(counts));
-                    plot(centers,counts);    
+                    plot(centers,counts,'LineWidth',2);    
                                      
                 end
             end
