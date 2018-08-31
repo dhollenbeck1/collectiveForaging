@@ -1,0 +1,20 @@
+%% move data from xlsx to mat
+
+% 1. manually import data
+% 2. update ang, coh, and cor 
+% 3. run script
+
+ang = 180;
+coh = 1;
+cor = 1;
+
+avg_t2e = VarName3;
+avg_t2d = VarName4;
+part = VarName5;
+tar = VarName6;
+
+fn = ['angle',num2str(ang),'_coh',num2str(ang),'cor',num2str(ang),'.mat'];
+save(fn,'avg_t2e','avg_t2d','part','tar')
+
+clc
+clear
