@@ -1,9 +1,11 @@
-wd = 0.1;
-a = 3;
-b = 1.25;
-c = 2;
-d = 4;
+wd = 1;
 s = 15;
+s = 0.8*s
+a = 2;
+b = 1.5;
+c = s;
+d = s;
+
 
 r = linspace(1,100,100);
 ljp(r,wd,s,a,b,c,d)
@@ -16,6 +18,6 @@ if length(radius) == 1
     F
 else
     plot(radius,F)
-    axis([0,100,-2,5])
+    axis([0,100,-10,10])
 end
 end

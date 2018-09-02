@@ -21,134 +21,586 @@
 ;; This work was supported by the National Science Foundation
 ;; NRT Intelligent Adaptive Systems.
 ;; ==============================================================
+
+breed [ user the-user ]
+breed [ vultures a-vulture ]
+breed [ sheep a-sheep ]
+breed [ vision-boundary a-vision-boundary ]
+
 globals [
- population vision minimum-separation max-align-turn max-cohere-turn max-separate-turn
+  population vision vision-food cohesion-dist
+  minimum-separation max-align-turn max-cohere-turn max-separate-turn
+  users-on cohesion-on alignment-on smoothing-on
+  mov-spd turn-angle
+  color-bkg color-tar color-vulture color-descend color-user
+  size-of-map size-of-patch size-of-agent
+  alpha epsilon gamma R
+  xcor-tar ycor-tar reset-tar hp-tar eating-dist tar-count
+  xcor-user ycor-user
+  tempx tempy
+  ljp-alpha ljp-beta ljp-well-depth
+  vultures-descending vulture-gain
+  tic-int-count tic-eat-count user-eat-count user-head
+  tic-max tic-eat-user
+  t2d-start t2d-on t2d user-t2d-start user-t2d-on user-t2d avg-t2d user-avg-t2d
+  t2e-start t2e-on t2e user-t2e-start user-t2e-on user-t2e avg-t2e user-avg-t2e
+  group-eff user-eff eff-scale avg-eff user-avg-eff tot-eff tot-user-eff
 ]
+
 turtles-own [
-  flockmates         ;; agentset of nearby turtles
-  nearest-neighbor   ;; closest one of our flockmates
+  flockmates
+  cohesionmates
+  nearby-sheep
+  wake
+  nearest-neighbor
+  nearest-sheep
+  descending
+  feasting
+  see-tar
+  dix diy dax day dljx dljy dnx dny       ;; direction vectors
+  counted
+]
+
+sheep-own [
+ energy
 ]
 
 to setup
   clear-all
-
-  set population              10
-  set vision                  3
-  set minimum-separation      1
-  set max-align-turn          5
-  set max-cohere-turn         3
-  set max-separate-turn       1.5
-
-  create-turtles population
-    [ set color yellow - 2 + random 7  ;; random shades look nice
-      set size 1.5  ;; easier to see
-      setxy random-xcor random-ycor
-      set flockmates no-turtles ]
-
   reset-ticks
+
+  ;; Colors and sizes
+  set color-bkg                  black
+  set color-tar                  yellow
+  set color-descend              red
+  set color-vulture              white
+  set color-user                 green
+  set size-of-agent              4
+  set size-of-map                100
+  set size-of-patch              3
+  resize-world (-1 * size-of-map) size-of-map (-1 * size-of-map) size-of-map
+  set-patch-size size-of-patch
+
+  ;; Hyperparameters
+  let start-dist              20
+  set population              10
+  set vision-food             15
+  set vision                  1.5 * vision-food
+  set eating-dist             1
+  set vulture-gain            1
+  set cohesion-dist           vision * 2
+  set turn-angle              180
+  set hp-tar                  500
+  set reset-tar               false
+  set vultures-descending     false
+
+  ;; LJP Params
+  set R                       0.8 * vision
+  set ljp-alpha               4
+  set ljp-beta                3
+  set ljp-well-depth          0.5
+
+  ;; Direction parameters
+  set alpha                   0.5
+  set epsilon                 0.5
+  set gamma                   0.5
+
+  ;; Turtle parameters
+  set mov-spd                 1
+
+  ;; Simulation settings
+  set users-on                true
+  set smoothing-on            false
+  set cohesion-on             true
+  set alignment-on            true
+  set tic-max                 10000
+
+  set group-eff                    0
+  set user-eff                     0
+  set avg-eff                      0
+  set user-avg-eff                 0
+  set t2d-start                    0
+  set t2d-on                       true
+  set t2e-start                    0
+  set t2e-on                       false
+  set t2d                          0
+  set t2e                          0
+  set user-t2d-start               0
+  set user-t2d-on                  true
+  set user-t2d                     0
+  set user-t2e-start               0
+  set user-t2e-on                  false
+  set user-t2e                     0
+  set avg-t2d                      tic-max
+  set avg-t2e                      hp-tar
+  set user-avg-t2d                 tic-max
+  set user-avg-t2e                 hp-tar
+  set tar-count                    0
+  set tic-int-count                0
+  set tic-eat-user                 0
+
+  ;======for testing===============
+  ifelse cohesion?
+  [set cohesion-on true]
+  [set cohesion-on false]
+
+  ifelse alignment?
+  [set alignment-on true]
+  [set alignment-on false]
+
+  ifelse users?
+  [ set users-on true ]
+  [ set users-on false ]
+  ;================================
+
+  ;; Initialize Simulation
+  ask patches [
+   set pcolor color-bkg
+  ]
+
+  if users-on = true
+  [
+    set population             population - 1
+    create-user 1
+    [ set color color-user
+      set size size-of-agent
+      setxy random start-dist random start-dist
+      set flockmates no-turtles
+      set descending false
+      set see-tar false
+      set feasting false
+      set dax 0
+      set day 0
+      set dljx 0
+      set dljy 0
+      set dnx 0
+      set dny 0
+      set dix random-float 1
+      set diy random-float 1
+    ]
+   create-vision-boundary 1 [
+   set shape                      "circle 3"
+   set color                       color-user
+   set size                        vision * size-of-patch * 0.8
+   setxy xcor-user ycor-user
+  ]
+    ask user [ update-vision-boundary ]
+  ]
+
+  create-vultures population
+  [
+    set color color-vulture
+    set size size-of-agent
+    setxy random start-dist random start-dist
+    set flockmates no-turtles
+    set descending false
+    set feasting false
+    set see-tar false
+    set dax 0
+    set day 0
+    set dljx 0
+    set dljy 0
+    set dnx 0
+    set dny 0
+    set dix random 1
+    set diy random 1
+  ]
+
+  create-sheep 1
+  [
+   set color color-tar
+   set shape "star"
+   set size size-of-agent
+   set xcor-tar random-xcor
+   set ycor-tar random-ycor
+   setxy xcor-tar ycor-tar
+   set energy hp-tar
+   ;set descending false
+   ;set see-tar false
+  ]
+
+  if users-on = true
+  [ask vultures [ set color color-bkg ]
+  ask sheep [ set color color-bkg]]
 end
+
+
 
 to go
-  ask turtles [ flock ]
-  ;; the following line is used to make the turtles
-  ;; animate more smoothly.
-  ;; repeat 5 [ ask turtles [ fd 0.2 ] display ]
-  ;; for greater efficiency, at the expense of smooth
-  ;; animation, substitute the following line instead:
-  ask turtles [ fd 1 ]
+
+  ;======for testing===============
+  ifelse cohesion?
+  [set cohesion-on true]
+  [set cohesion-on false]
+
+  ifelse alignment?
+  [set alignment-on true]
+  [set alignment-on false]
+
+  ifelse users?
+  [ set users-on true ]
+  [ set users-on false ]
+  ;================================
+
+  ask vultures [
+    find-food
+    if descending = false
+    [update-direction]]
+
+  if users-on = true [
+    ask user [
+    find-food
+    if feasting = true
+    [set tic-eat-user tic-eat-user + 1]
+    if descending = false
+    [update-direction
+     set user-head heading]
+    update-vision-boundary
+    ]]
+
+  ifelse smoothing-on = true
+  [repeat 5 [
+   ask vultures [ fd mov-spd / 5 ]
+   ask user [ fd mov-spd / 5 ]
+   display ]]
+  [ask vultures [ fd mov-spd ]
+   ask user [ fd mov-spd ]]
+
+  ifelse users-on = true
+  [ update-fog ]
+  [ clear-fog  ]
+
+
   tick
+  if ticks > tic-max
+  [stop]
 end
 
-to flock  ;; turtle procedure
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;               FUNCTIONS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+to update-vision-boundary
+  set xcor-user [xcor] of self
+  set ycor-user [ycor] of self
+  ask vision-boundary
+  [
+    setxy xcor-user ycor-user
+  ]
+end
+
+
+to clear-fog
+  ask vultures
+  [
+    ifelse descending = true
+    [set color color-descend]
+    [set color color-vulture]
+  ]
+  ask sheep [ set color color-tar]
+end
+
+to update-fog
+  ask turtles [ set counted false ]
+  ask vultures [ set color color-bkg ]
+  ask sheep [ set color color-bkg]
+  ask user
+  [
+  let vultures-in-view vultures in-radius vision
+    if any? vultures-in-view [
+      ask vultures-in-view [
+        ifelse descending = true
+        [set color color-descend
+         set vultures-descending true
+         set counted true]
+        [set color color-vulture
+         set vultures-descending false]
+        uncover-fog-vultures]
+  ]
+
+  let sheep-in-view sheep in-radius vision-food
+  ask sheep-in-view [
+    set color color-tar
+    set counted true
+  ]
+  ]
+end
+
+to uncover-fog-vultures
+  while [vultures-descending = true]
+  [
+    let vultures-in-view vultures in-radius vision with [descending and not counted]
+    ifelse any? vultures-in-view
+    [
+      ask vultures-in-view
+      [ set color color-descend
+        set counted true
+        let sheep-in-view sheep in-radius vision-food with [not counted]
+        ask sheep-in-view
+        [ set color color-tar
+          set counted true ]
+      ]
+    ]
+    [
+      set vultures-descending false
+    ]
+  ]
+end
+
+to find-food
+  find-sheep
+  ifelse any? nearby-sheep
+  [
+    set descending true
+    set see-tar true
+    find-nearest-sheep
+    face nearest-sheep
+    eat-sheep
+  ]
+  [
+    find-wake
+    ifelse any? wake
+    [
+      find-nearest-neighbor
+      ifelse [see-tar] of nearest-neighbor
+      [set descending true
+       face nearest-neighbor]
+      [set descending false
+      set see-tar false]
+    ]
+    [
+      set descending false
+      set see-tar false
+    ]
+    find-wake-user
+    ifelse any? wake
+    [
+      find-nearest-neighbor
+      ifelse [see-tar] of nearest-neighbor
+      [set descending true
+       face nearest-neighbor]
+      [set descending false
+      set see-tar false]
+    ]
+    [
+      set descending false
+      set see-tar false
+    ]
+  ]
+end
+
+to find-sheep
+  set nearby-sheep sheep in-radius vision-food
+end
+
+to find-nearest-sheep
+  set nearest-sheep min-one-of nearby-sheep [distance myself]
+end
+
+to find-wake  ;; vulture procedure
+  set wake vultures in-radius vision with [descending]
+end
+
+to find-wake-user  ;; vulture procedure
+  set wake user in-radius vision with [descending]
+end
+
+to find-nearest-neighbor ;; vulture procedure
+  set nearest-neighbor min-one-of wake [distance myself]
+end
+
+to eat-sheep
+  let prey sheep in-radius eating-dist
+  if any? prey
+  [
+    if t2d-on = true
+    [
+      set t2d ticks - t2d-start
+      set t2e-start ticks
+      set t2d-on false
+      set tar-count tar-count + 1
+      ifelse tar-count = 1
+      [ set avg-t2d t2d ]
+      [ set avg-t2d (avg-t2d + t2d) / 2]
+    ]
+    set feasting true
+    ask prey
+    [
+      set energy energy - vulture-gain
+      if energy < 0
+      [
+        set reset-tar true
+        hatch 1
+        [
+          set energy hp-tar
+          set xcor-tar random-xcor
+          set ycor-tar random-ycor
+          setxy xcor-tar ycor-tar
+        ]
+        die
+      ]
+    ]
+    if (reset-tar = true)
+    [
+        set reset-tar false
+        reset-vulture-feasting
+    ]
+ ]
+end
+
+to update-direction  ;; procedure to update new direction
+  set dax 0
+  set day 0
+  set dljx 0
+  set dljy 0
+
+  update-da
+  update-dlj
+  update-dn
+
+  set dix (alpha * dax + epsilon * dljx + gamma * dnx)
+  set diy (alpha * day + epsilon * dljy + gamma * dny)
+  set heading (atan dix diy)
+end
+
+to update-da   ;; alignment mechanism
+  if alignment-on = true
+  [
   find-flockmates
-  if any? flockmates
-    [ find-nearest-neighbor
-      ifelse distance nearest-neighbor < minimum-separation
-        [ separate ]
-        [ align
-          cohere ] ]
+  ifelse any? flockmates
+  [ set dax sum [dx] of flockmates
+    set day sum [dy] of flockmates ]
+    [ set dax sin [heading] of self
+      set day cos [heading] of self ]
+  ]
+end
+
+to update-dlj   ;; cohesion mechanism
+  if cohesion-on = true
+  [
+    find-cohesionmates
+    update-dlj-subroutine
+    if breed = vultures [
+    find-cohesionmates-user
+      update-dlj-subroutine]
+  ]
+end
+
+to update-dlj-subroutine
+    if any? cohesionmates
+    [
+      ;; get heading of current agent i
+      let xi [xcor] of self
+      let yi [ycor] of self
+      set tempx 0
+      set tempy 0
+
+      ask cohesionmates
+      [
+        ;; get info on agent j
+        let xj [xcor] of self
+        let yj [ycor] of self
+        let sij distancexy xi yi
+        let sheading random 360
+        if (yj - yi) = 0 and (xj - xi) = 0
+        [set yj 0
+        set xj 0]
+        set sheading atan (xj - xi) (yj - yi)
+        ;set sheading towardsxy (xj - xi) (yj - yi)
+        if sij = 0
+        [ set sij 0.0001 ]
+        let f ( (R / sij) ^ ljp-alpha - (R / sij) ^ ljp-beta )
+        set tempx tempx - f * sin ( sheading )
+        set tempy tempy - f * cos ( sheading )
+      ]
+
+      set dljx ljp-well-depth * tempx
+      set dljy ljp-well-depth * tempy
+    ]
+end
+
+to update-dn   ;; noise / user input
+  if breed = vultures
+  [
+    let dn heading + random turn-angle - random turn-angle
+    set dnx sin dn
+    set dny cos dn
+  ]
+  if breed = user
+  [
+    ifelse mouse-down?
+    [ set tic-int-count tic-int-count + 1
+      let xcom mouse-xcor
+      let ycom mouse-ycor
+      ;let normxy sqrt (xcom ^ 2 + ycom ^ 2)
+      set dnx xcom ;/ normxy
+      set dny ycom ;/ normxy
+    ]
+    [ let dn heading + random turn-angle - random turn-angle
+      set dnx sin dn
+      set dny cos dn ]
+  ]
 end
 
 to find-flockmates  ;; turtle procedure
   set flockmates other turtles in-radius vision
 end
 
-to find-nearest-neighbor ;; turtle procedure
-  set nearest-neighbor min-one-of flockmates [distance myself]
+to find-cohesionmates ;; turtle procedure
+  set cohesionmates other vultures in-radius cohesion-dist
 end
 
-;;; SEPARATE
-
-to separate  ;; turtle procedure
-  turn-away ([heading] of nearest-neighbor) max-separate-turn
+to find-cohesionmates-user ;; turtle procedure
+  set cohesionmates user in-radius cohesion-dist
 end
 
-;;; ALIGN
+to reset-vulture-feasting
+  ask vultures
+  [
+    set feasting false
+    set descending false
+    set see-tar false
+  ]
 
-to align  ;; turtle procedure
-  turn-towards average-flockmate-heading max-align-turn
+  ask user
+  [
+    if feasting = true
+    [
+      set user-t2e ticks - user-t2e-start
+      ifelse user-eat-count = 1
+      [ set user-avg-t2e user-t2e]
+      [ set user-avg-t2e (user-avg-t2e + user-t2e) / 2]
+    ]
+    set feasting false
+    set descending false
+    set see-tar false
+  ]
+
+  set t2d-on true
+  set t2d-start ticks
+  set t2e ticks - t2e-start
+  ifelse tar-count = 1
+  [ set avg-t2e t2e]
+  [ set avg-t2e (avg-t2e + t2e) / 2]
+
+   set user-t2d-on true
+   set user-t2d-start ticks
+
 end
-
-to-report average-flockmate-heading  ;; turtle procedure
-  ;; We can't just average the heading variables here.
-  ;; For example, the average of 1 and 359 should be 0,
-  ;; not 180.  So we have to use trigonometry.
-  let x-component sum [dx] of flockmates
-  let y-component sum [dy] of flockmates
-  ifelse x-component = 0 and y-component = 0
-    [ report heading ]
-    [ report atan x-component y-component ]
-end
-
-;;; COHERE
-
-to cohere  ;; turtle procedure
-  turn-towards average-heading-towards-flockmates max-cohere-turn
-end
-
-to-report average-heading-towards-flockmates  ;; turtle procedure
-  ;; "towards myself" gives us the heading from the other turtle
-  ;; to me, but we want the heading from me to the other turtle,
-  ;; so we add 180
-  let x-component mean [sin (towards myself + 180)] of flockmates
-  let y-component mean [cos (towards myself + 180)] of flockmates
-  ifelse x-component = 0 and y-component = 0
-    [ report heading ]
-    [ report atan x-component y-component ]
-end
-
-;;; HELPER PROCEDURES
-
-to turn-towards [new-heading max-turn]  ;; turtle procedure
-  turn-at-most (subtract-headings new-heading heading) max-turn
-end
-
-to turn-away [new-heading max-turn]  ;; turtle procedure
-  turn-at-most (subtract-headings heading new-heading) max-turn
-end
-
-;; turn right by "turn" degrees (or left if "turn" is negative),
-;; but never turn more than "max-turn" degrees
-to turn-at-most [turn max-turn]  ;; turtle procedure
-  ifelse abs turn > max-turn
-    [ ifelse turn > 0
-        [ rt max-turn ]
-        [ lt max-turn ] ]
-    [ rt turn ]
-end
-
-
-; Copyright 1998 Uri Wilensky.
-; See Info tab for full copyright and license.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 @#$#@#$#@
 GRAPHICS-WINDOW
-11
-10
-516
-516
+473
+47
+1084
+659
 -1
 -1
-7.0
+3.0
 1
 10
 1
@@ -158,10 +610,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--35
-35
--35
-35
+-100
+100
+-100
+100
 1
 1
 1
@@ -169,10 +621,10 @@ ticks
 30.0
 
 BUTTON
-168
-528
-245
-561
+1501
+363
+1578
+396
 NIL
 setup
 NIL
@@ -186,10 +638,10 @@ NIL
 1
 
 BUTTON
-251
-528
-332
-561
+717
+674
+798
+707
 NIL
 go
 T
@@ -200,6 +652,108 @@ NIL
 NIL
 NIL
 NIL
+0
+
+SWITCH
+1493
+222
+1603
+255
+cohesion?
+cohesion?
+0
+1
+-1000
+
+SWITCH
+1493
+264
+1607
+297
+alignment?
+alignment?
+0
+1
+-1000
+
+SWITCH
+1497
+309
+1600
+342
+users?
+users?
+0
+1
+-1000
+
+PLOT
+1167
+143
+1483
+408
+plot 1
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot avg-t2d"
+"pen-1" 1.0 0 -7500403 true "" "plot avg-t2e"
+
+MONITOR
+1167
+419
+1224
+464
+targets
+tar-count
+17
+1
+11
+
+MONITOR
+1237
+418
+1318
+463
+participation
+tic-int-count / (tic-max - tic-eat-user)
+17
+1
+11
+
+PLOT
+1162
+478
+1728
+686
+plot 2
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot user-head"
+
+TEXTBOX
+1153
+68
+1767
+701
+hidden panel
+11
+0.0
 0
 
 @#$#@#$#@
@@ -373,6 +927,11 @@ false
 0
 Circle -7500403 true true 0 0 300
 Circle -16777216 true false 30 30 240
+
+circle 3
+false
+0
+Circle -7500403 false true 8 8 283
 
 cow
 false
