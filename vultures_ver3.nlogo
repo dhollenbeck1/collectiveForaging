@@ -45,6 +45,7 @@ globals [
   t2d-start t2d-on t2d user-t2d-start user-t2d-on user-t2d avg-t2d user-avg-t2d
   t2e-start t2e-on t2e user-t2e-start user-t2e-on user-t2e avg-t2e user-avg-t2e
   group-eff user-eff eff-scale avg-eff user-avg-eff tot-eff tot-user-eff
+  sij-lim
 ]
 
 turtles-own [
@@ -99,6 +100,7 @@ to setup
   set ljp-alpha               4
   set ljp-beta                3
   set ljp-well-depth          0.5
+  set sij-lim                 5
 
   ;; Direction parameters
   set alpha                   0.5
@@ -263,13 +265,43 @@ to go
    ask vultures [ fd mov-spd / 5 ]
    ask user [ fd mov-spd / 5 ]
    display ]]
-  [ask vultures [ fd mov-spd ]
-   ask user [ fd mov-spd ]]
+  [ask vultures [
+    ifelse feasting = true
+    [ setxy xcor-tar ycor-tar ]
+    [fd mov-spd] ]
+   ask user [
+      ifelse feasting = true
+      [setxy xcor-tar ycor-tar]
+      [fd mov-spd ]]
+  ]
 
   ifelse users-on = true
   [ update-fog ]
-  [ clear-fog  ]
+  [ clear-fog
+    ask user [
+      find-food
+    if feasting = true
+    [set tic-eat-user tic-eat-user + 1]
+    if descending = false
+    [update-direction
+     set user-head heading]
+    update-vision-boundary ]]
 
+  set group-eff (1 / (avg-t2d * avg-t2e) )
+  ;set user-eff (1 / (user-avg-t2d * user-avg-t2e) )
+  ifelse ticks > 1
+  [
+    set tot-eff tot-eff + group-eff
+    ;set tot-user-eff tot-user-eff + user-eff
+    set avg-eff tot-eff / 2
+    ;set user-avg-eff tot-user-eff / 2
+  ]
+  [
+   set tot-eff group-eff
+   set avg-eff group-eff
+   ;set tot-user-eff user-eff
+   ;set user-avg-eff user-eff
+  ]
 
   tick
   if ticks > tic-max
@@ -480,11 +512,19 @@ end
 to update-dlj   ;; cohesion mechanism
   if cohesion-on = true
   [
+    set tempx 0
+    set tempy 0
+    if breed = user
+    [
+     find-cohesionmates-vultures
+     update-dlj-subroutine
+    ]
+    if breed = vultures [
     find-cohesionmates
     update-dlj-subroutine
-    if breed = vultures [
     find-cohesionmates-user
-      update-dlj-subroutine]
+    update-dlj-subroutine
+    ]
   ]
 end
 
@@ -494,8 +534,6 @@ to update-dlj-subroutine
       ;; get heading of current agent i
       let xi [xcor] of self
       let yi [ycor] of self
-      set tempx 0
-      set tempy 0
 
       ask cohesionmates
       [
@@ -505,12 +543,12 @@ to update-dlj-subroutine
         let sij distancexy xi yi
         let sheading random 360
         if (yj - yi) = 0 and (xj - xi) = 0
-        [set yj 0
-        set xj 0]
+        [set yj yj + random-float 10 - random-float 10
+        set xj xj + random-float 10 - random-float 10]
         set sheading atan (xj - xi) (yj - yi)
         ;set sheading towardsxy (xj - xi) (yj - yi)
-        if sij = 0
-        [ set sij 0.0001 ]
+        if sij <= sij-lim
+        [ set sij sij-lim ]
         let f ( (R / sij) ^ ljp-alpha - (R / sij) ^ ljp-beta )
         set tempx tempx - f * sin ( sheading )
         set tempy tempy - f * cos ( sheading )
@@ -550,6 +588,10 @@ end
 
 to find-cohesionmates ;; turtle procedure
   set cohesionmates other vultures in-radius cohesion-dist
+end
+
+to find-cohesionmates-vultures ;; turtle procedure
+  set cohesionmates vultures in-radius cohesion-dist
 end
 
 to find-cohesionmates-user ;; turtle procedure
@@ -621,10 +663,10 @@ ticks
 30.0
 
 BUTTON
-1501
-363
-1578
-396
+1507
+351
+1584
+384
 NIL
 setup
 NIL
@@ -655,10 +697,10 @@ NIL
 0
 
 SWITCH
-1493
-222
-1603
-255
+1499
+210
+1609
+243
 cohesion?
 cohesion?
 0
@@ -666,24 +708,24 @@ cohesion?
 -1000
 
 SWITCH
-1493
-264
-1607
+1499
+252
+1613
+285
+alignment?
+alignment?
+0
+1
+-1000
+
+SWITCH
+1503
 297
-alignment?
-alignment?
-0
+1606
+330
+users?
+users?
 1
--1000
-
-SWITCH
-1497
-309
-1600
-342
-users?
-users?
-0
 1
 -1000
 
@@ -705,6 +747,8 @@ false
 PENS
 "default" 1.0 0 -16777216 true "" "plot avg-t2d"
 "pen-1" 1.0 0 -7500403 true "" "plot avg-t2e"
+"pen-2" 1.0 0 -2674135 true "" "plot t2d"
+"pen-3" 1.0 0 -955883 true "" "plot t2e"
 
 MONITOR
 1167
@@ -733,7 +777,7 @@ PLOT
 478
 1728
 686
-plot 2
+User heading
 NIL
 NIL
 0.0
@@ -745,15 +789,53 @@ false
 "" ""
 PENS
 "default" 1.0 0 -16777216 true "" "plot user-head"
+"pen-1" 1.0 0 -7500403 true "" "plot [heading] of turtle 2"
+"pen-2" 1.0 0 -2674135 true "" "plot [heading] of turtle 3"
+"pen-3" 1.0 0 -955883 true "" "plot [heading] of turtle 4"
+"pen-4" 1.0 0 -6459832 true "" "plot [heading] of turtle 5"
+"pen-5" 1.0 0 -1184463 true "" "plot [heading] of turtle 6"
+"pen-6" 1.0 0 -10899396 true "" "plot [heading] of turtle 7"
+"pen-7" 1.0 0 -13840069 true "" "plot [heading] of turtle 8"
+"pen-8" 1.0 0 -14835848 true "" "plot [heading] of turtle 9"
+"pen-9" 1.0 0 -11221820 true "" "plot [heading] of turtle 10"
+
+MONITOR
+1625
+421
+1742
+466
+Average Efficiency
+avg-eff
+4
+1
+11
+
+PLOT
+1624
+157
+1897
+401
+Average Efficiency
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot avg-eff"
 
 TEXTBOX
-1153
-68
-1767
-701
-hidden panel
+1143
+46
+1910
+116
+Hidden Panel
 11
-0.0
+9.0
 0
 
 @#$#@#$#@
