@@ -46,6 +46,7 @@ globals [
   t2e-start t2e-on t2e user-t2e-start user-t2e-on user-t2e avg-t2e user-avg-t2e
   group-eff user-eff eff-scale avg-eff user-avg-eff tot-eff tot-user-eff
   sij-lim
+  mouse-always-down
 ]
 
 turtles-own [
@@ -89,7 +90,7 @@ to setup
   set vision                  1.5 * vision-food
   set eating-dist             1
   set vulture-gain            1
-  set cohesion-dist           vision * 2
+  set cohesion-dist           vision * 1.5
   set turn-angle              180
   set hp-tar                  500
   set reset-tar               false
@@ -103,14 +104,15 @@ to setup
   set sij-lim                 5
 
   ;; Direction parameters
-  set alpha                   0.5
-  set epsilon                 0.5
-  set gamma                   0.5
+  set alpha                   alpha-slider
+  set epsilon                 epsilon-slider
+  set gamma                   gamma-slider
 
   ;; Turtle parameters
   set mov-spd                 1
 
   ;; Simulation settings
+  set mouse-always-down       true
   set users-on                true
   set smoothing-on            false
   set cohesion-on             true
@@ -242,6 +244,10 @@ to go
   ifelse users?
   [ set users-on true ]
   [ set users-on false ]
+
+  set alpha                   alpha-slider
+  set epsilon                 epsilon-slider
+  set gamma                   gamma-slider
   ;================================
 
   ask vultures [
@@ -568,7 +574,7 @@ to update-dn   ;; noise / user input
   ]
   if breed = user
   [
-    ifelse mouse-down?
+    ifelse mouse-down? or mouse-always-down = true
     [ set tic-int-count tic-int-count + 1
       let xcom mouse-xcor
       let ycom mouse-ycor
@@ -680,10 +686,10 @@ NIL
 1
 
 BUTTON
-717
-674
-798
-707
+719
+668
+800
+701
 NIL
 go
 T
@@ -800,10 +806,10 @@ PENS
 "pen-9" 1.0 0 -11221820 true "" "plot [heading] of turtle 10"
 
 MONITOR
-1625
-421
-1742
-466
+1737
+402
+1854
+447
 Average Efficiency
 avg-eff
 4
@@ -828,14 +834,59 @@ false
 PENS
 "default" 1.0 0 -16777216 true "" "plot avg-eff"
 
+SLIDER
+1458
+386
+1630
+419
+alpha-slider
+alpha-slider
+0
+1
+0.5
+0.05
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1461
+427
+1633
+460
+epsilon-slider
+epsilon-slider
+0
+1
+0.5
+0.05
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1461
+467
+1633
+500
+gamma-slider
+gamma-slider
+0
+1
+0.5
+0.05
+1
+NIL
+HORIZONTAL
+
 TEXTBOX
-1143
-46
-1910
-116
-Hidden Panel
+1128
+47
+1908
+101
+NIL
 11
-9.0
+0.0
 0
 
 @#$#@#$#@
