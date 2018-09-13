@@ -102,7 +102,7 @@ to setup
   set ljp-alpha               4
   set ljp-beta                3
   set ljp-well-depth          0.5
-  set sij-lim                 5
+  set sij-lim                 10
 
   ;; Direction parameters
   set alpha                   alpha-slider
@@ -925,7 +925,7 @@ PLOT
 515
 1804
 665
-Total Length traveled
+Length traveled per tick
 NIL
 NIL
 0.0
