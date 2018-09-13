@@ -44,14 +44,16 @@ globals [
   tic-max tic-eat-user
   t2d-start t2d-on t2d user-t2d-start user-t2d-on user-t2d avg-t2d user-avg-t2d
   t2e-start t2e-on t2e user-t2e-start user-t2e-on user-t2e avg-t2e user-avg-t2e
-  group-eff user-eff eff-scale avg-eff user-avg-eff tot-eff tot-user-eff
+  group-eff eff-scale
   sij-lim
   mouse-always-down
   len tot-len
+  user-heading-change
 ]
 
 turtles-own [
   flockmates
+  old-heading heading-change
   cohesionmates
   nearby-sheep
   wake
@@ -121,9 +123,7 @@ to setup
   set tic-max                 10000
 
   set group-eff                    0
-  set user-eff                     0
-  set avg-eff                      0
-  set user-avg-eff                 0
+  set eff-scale                    1000
   set t2d-start                    0
   set t2d-on                       true
   set t2e-start                    0
@@ -184,6 +184,7 @@ to setup
       set dny 0
       set dix random-float 1
       set diy random-float 1
+      set old-heading heading
     ]
    create-vision-boundary 1 [
    set shape                      "circle 3"
@@ -211,6 +212,7 @@ to setup
     set dny 0
     set dix random 1
     set diy random 1
+    set old-heading heading
   ]
 
   create-sheep 1
@@ -276,12 +278,14 @@ to go
     repeat 5 [
     ask vultures [
     ifelse feasting = true
-    [ setxy xcor-tar ycor-tar ]
+    [ setxy xcor-tar ycor-tar
+      set heading-change 0]
     [fd mov-spd / 5
      set len len + 1 / 5] ]
      ask user [
      ifelse feasting = true
-     [setxy xcor-tar ycor-tar]
+     [setxy xcor-tar ycor-tar
+        set heading-change 0]
      [fd mov-spd / 5
       set len len + 1 / 5]]
    display ]
@@ -289,12 +293,14 @@ to go
   [
     ask vultures [
     ifelse feasting = true
-    [ setxy xcor-tar ycor-tar ]
+    [ setxy xcor-tar ycor-tar
+      set heading-change 0 ]
     [fd mov-spd
      set len len + 1] ]
      ask user [
      ifelse feasting = true
-     [setxy xcor-tar ycor-tar]
+     [setxy xcor-tar ycor-tar
+      set heading-change 0]
      [fd mov-spd
       set len len + 1]]
   ]
@@ -311,23 +317,11 @@ to go
      set user-head heading]
     update-vision-boundary ]]
 
-  set group-eff (1 / (avg-t2d * avg-t2e) )
-  ;set user-eff (1 / (user-avg-t2d * user-avg-t2e) )
-  ifelse ticks > 1
-  [
-    set tot-eff tot-eff + group-eff
-    ;set tot-user-eff tot-user-eff + user-eff
-    set avg-eff tot-eff / 2
-    ;set user-avg-eff tot-user-eff / 2
-  ]
-  [
-   set tot-eff group-eff
-   set avg-eff group-eff
-   ;set tot-user-eff user-eff
-   ;set user-avg-eff user-eff
-  ]
 
   set tot-len tot-len + len
+
+  ; update effciency
+  set group-eff (eff-scale * tar-count / tot-len )
 
   tick
   if ticks > tic-max
@@ -513,6 +507,7 @@ to update-direction  ;; procedure to update new direction
   set day 0
   set dljx 0
   set dljy 0
+  set old-heading heading
 
   update-da
   update-dlj
@@ -521,6 +516,31 @@ to update-direction  ;; procedure to update new direction
   set dix (alpha * dax + epsilon * dljx + gamma * dnx)
   set diy (alpha * day + epsilon * dljy + gamma * dny)
   set heading (atan dix diy)
+
+  get-heading-change
+end
+
+to get-heading-change
+  ifelse old-heading = heading
+  [
+    set heading-change 0
+    if breed = user
+    [set user-heading-change 0]
+  ]
+  [
+  let xi sin old-heading
+  let yi cos old-heading
+  let xf sin heading
+  let yf cos heading
+  let rhs ( (xi * xf + yi * yf) / (sqrt (xi ^ 2 + yi ^ 2) * sqrt (xf ^ 2 + yf ^ 2) ) )
+  if rhs > 1
+    [set rhs 1]
+  if rhs < -1
+    [set rhs -1]
+  set heading-change  acos rhs
+  if breed = user
+    [set user-heading-change heading-change]
+  ]
 end
 
 to update-da   ;; alignment mechanism
@@ -689,10 +709,10 @@ ticks
 30.0
 
 BUTTON
-1507
-351
-1584
-384
+228
+391
+305
+424
 NIL
 setup
 NIL
@@ -706,9 +726,9 @@ NIL
 1
 
 BUTTON
-719
+699
 668
-800
+780
 701
 NIL
 go
@@ -723,10 +743,10 @@ NIL
 0
 
 SWITCH
-1499
-210
-1609
-243
+298
+256
+408
+289
 cohesion?
 cohesion?
 0
@@ -734,10 +754,10 @@ cohesion?
 -1000
 
 SWITCH
-1499
-252
-1613
-285
+298
+298
+412
+331
 alignment?
 alignment?
 0
@@ -745,13 +765,13 @@ alignment?
 -1000
 
 SWITCH
-1503
-297
-1606
-330
+302
+343
+405
+376
 users?
 users?
-1
+0
 1
 -1000
 
@@ -760,7 +780,7 @@ PLOT
 143
 1483
 408
-plot 1
+(avg/current) Time to (detect/eat) vs time 
 NIL
 NIL
 0.0
@@ -777,10 +797,10 @@ PENS
 "pen-3" 1.0 0 -955883 true "" "plot t2e"
 
 MONITOR
-1167
-419
-1224
-464
+794
+664
+851
+709
 targets
 tar-count
 17
@@ -788,10 +808,10 @@ tar-count
 11
 
 MONITOR
-1237
-418
-1318
-463
+1239
+423
+1320
+468
 participation
 tic-int-count / (tic-max - tic-eat-user)
 17
@@ -799,10 +819,10 @@ tic-int-count / (tic-max - tic-eat-user)
 11
 
 PLOT
-1162
-478
-1485
-686
+1157
+484
+1480
+692
 User heading
 NIL
 NIL
@@ -826,22 +846,22 @@ PENS
 "pen-9" 1.0 0 -11221820 true "" "plot [heading] of turtle 10"
 
 MONITOR
-1737
-402
-1854
-447
-Average Efficiency
-avg-eff
+1497
+422
+1614
+467
+Group Efficiency
+group-eff
 4
 1
 11
 
 PLOT
-1624
-157
-1897
-401
-Average Efficiency
+1496
+140
+1799
+409
+Group Efficiency vs Time
 NIL
 NIL
 0.0
@@ -852,13 +872,13 @@ true
 false
 "" ""
 PENS
-"default" 1.0 0 -16777216 true "" "plot avg-eff"
+"default" 1.0 0 -16777216 true "" "plot group-eff"
 
 SLIDER
-1458
-386
-1630
-419
+106
+256
+278
+289
 alpha-slider
 alpha-slider
 0
@@ -870,10 +890,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-1461
-427
-1633
-460
+109
+297
+281
+330
 epsilon-slider
 epsilon-slider
 0
@@ -885,10 +905,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-1461
-467
-1633
-500
+109
+337
+281
+370
 gamma-slider
 gamma-slider
 0
@@ -898,22 +918,12 @@ gamma-slider
 1
 NIL
 HORIZONTAL
-
-TEXTBOX
-1128
-47
-1908
-101
-NIL
-11
-0.0
-0
 
 MONITOR
-1739
-461
-1863
-506
+1625
+423
+1798
+468
 Total length taveled
 tot-len
 0
@@ -921,10 +931,10 @@ tot-len
 11
 
 PLOT
-1604
-515
-1804
-665
+1496
+482
+1797
+687
 Length traveled per tick
 NIL
 NIL
@@ -937,6 +947,53 @@ false
 "" ""
 PENS
 "length" 1.0 0 -16777216 true "" "plot len"
+
+TEXTBOX
+1099
+91
+1810
+128
+NIL
+11
+0.0
+0
+
+PLOT
+123
+451
+420
+642
+heading change
+ticks
+change in heading
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot user-heading-change"
+"pen-1" 1.0 0 -7500403 true "" "plot [heading-change] of turtle 2"
+"pen-2" 1.0 0 -2674135 true "" "plot [heading-change] of turtle 3"
+"pen-3" 1.0 0 -955883 true "" "plot [heading-change] of turtle 4"
+"pen-4" 1.0 0 -6459832 true "" "plot [heading-change] of turtle 5"
+"pen-5" 1.0 0 -1184463 true "" "plot [heading-change] of turtle 6"
+"pen-6" 1.0 0 -10899396 true "" "plot [heading-change] of turtle 7"
+"pen-7" 1.0 0 -13840069 true "" "plot [heading-change] of turtle 8"
+"pen-8" 1.0 0 -14835848 true "" "plot [heading-change] of turtle 9"
+"pen-9" 1.0 0 -11221820 true "" "plot [heading-change] of turtle 10"
+
+TEXTBOX
+72
+188
+442
+227
+NIL
+11
+0.0
+0
 
 @#$#@#$#@
 ## WHAT IS IT?
