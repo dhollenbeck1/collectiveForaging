@@ -47,6 +47,7 @@ globals [
   group-eff user-eff eff-scale avg-eff user-avg-eff tot-eff tot-user-eff
   sij-lim
   mouse-always-down
+  len tot-len
 ]
 
 turtles-own [
@@ -142,6 +143,8 @@ to setup
   set tar-count                    0
   set tic-int-count                0
   set tic-eat-user                 0
+  set len                          0
+  set tot-len                      0
 
   ;======for testing===============
   ifelse cohesion?
@@ -250,6 +253,8 @@ to go
   set gamma                   gamma-slider
   ;================================
 
+  set len 0
+
   ask vultures [
     find-food
     if descending = false
@@ -267,18 +272,31 @@ to go
     ]]
 
   ifelse smoothing-on = true
-  [repeat 5 [
-   ask vultures [ fd mov-spd / 5 ]
-   ask user [ fd mov-spd / 5 ]
-   display ]]
-  [ask vultures [
+  [
+    repeat 5 [
+    ask vultures [
     ifelse feasting = true
     [ setxy xcor-tar ycor-tar ]
-    [fd mov-spd] ]
-   ask user [
-      ifelse feasting = true
-      [setxy xcor-tar ycor-tar]
-      [fd mov-spd ]]
+    [fd mov-spd / 5
+     set len len + 1 / 5] ]
+     ask user [
+     ifelse feasting = true
+     [setxy xcor-tar ycor-tar]
+     [fd mov-spd / 5
+      set len len + 1 / 5]]
+   display ]
+  ]
+  [
+    ask vultures [
+    ifelse feasting = true
+    [ setxy xcor-tar ycor-tar ]
+    [fd mov-spd
+     set len len + 1] ]
+     ask user [
+     ifelse feasting = true
+     [setxy xcor-tar ycor-tar]
+     [fd mov-spd
+      set len len + 1]]
   ]
 
   ifelse users-on = true
@@ -308,6 +326,8 @@ to go
    ;set tot-user-eff user-eff
    ;set user-avg-eff user-eff
   ]
+
+  set tot-len tot-len + len
 
   tick
   if ticks > tic-max
@@ -781,7 +801,7 @@ tic-int-count / (tic-max - tic-eat-user)
 PLOT
 1162
 478
-1728
+1485
 686
 User heading
 NIL
@@ -888,6 +908,35 @@ NIL
 11
 0.0
 0
+
+MONITOR
+1739
+461
+1863
+506
+Total length taveled
+tot-len
+0
+1
+11
+
+PLOT
+1604
+515
+1804
+665
+Total Length traveled
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"length" 1.0 0 -16777216 true "" "plot len"
 
 @#$#@#$#@
 ## WHAT IS IT?
