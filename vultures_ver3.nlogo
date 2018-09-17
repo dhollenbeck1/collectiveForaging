@@ -120,7 +120,7 @@ to setup
   set smoothing-on            false
   set cohesion-on             true
   set alignment-on            true
-  set tic-max                 10000
+  set tic-max                 12275
 
   set group-eff                    0
   set eff-scale                    1000
@@ -1394,6 +1394,34 @@ setup
 repeat 200 [ go ]
 @#$#@#$#@
 @#$#@#$#@
+<experiments>
+  <experiment name="experiment" repetitions="1" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>avg-t2d</metric>
+    <metric>avg-t2e</metric>
+    <metric>tar-count</metric>
+    <metric>group-eff</metric>
+    <enumeratedValueSet variable="gamma-slider">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="alpha-slider">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="cohesion?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="users?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="alignment?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="epsilon-slider">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+  </experiment>
+</experiments>
 @#$#@#$#@
 @#$#@#$#@
 default
